@@ -1,0 +1,4 @@
+// 예외, 공통 응답 포맷, 유틸. 프레임워크 의존을 최소로 유지한다.
+dependencies {
+    implementation 'com.fasterxml.jackson.core:jackson-annotations'
+}

@@ -1,0 +1,9 @@
+// 외부 시스템 어댑터: R2(S3 호환) 스토리지, Redis, 소셜 로그인 API, Expo Push
+dependencies {
+    api project(':common')
+
+    implementation 'org.springframework.boot:spring-boot-starter-web'
+    implementation 'org.springframework.boot:spring-boot-starter-data-redis'
+    implementation "software.amazon.awssdk:s3:${awsSdkVersion}"
+    implementation "software.amazon.awssdk:s3-transfer-manager:${awsSdkVersion}"
+}
