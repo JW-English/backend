@@ -1,0 +1,64 @@
+name: API CI
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'jungwoon-api/**'
+      - '.github/workflows/api-ci.yml'
+  pull_request:
+    paths:
+      - 'jungwoon-api/**'
+      - '.github/workflows/api-ci.yml'
+
+concurrency:
+  group: api-ci-${{ github.ref }}
+  cancel-in-progress: true
+
+defaults:
+  run:
+    working-directory: jungwoon-api
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+
+      - uses: gradle/actions/setup-gradle@v4
+
+      # Testcontainers 가 실제 Postgres/Redis 를 띄운다 (ubuntu 러너에 Docker 내장)
+      - name: Build & test
+        run: ./gradlew build --no-daemon
+
+      - name: Upload test report
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-report
+          path: jungwoon-api/api/build/reports/tests/test
+          retention-days: 7
+
+      # OpenAPI 스펙은 클라이언트 타입의 소스다. 계약이 깨지면 여기서 드러난다.
+      - name: Export OpenAPI spec
+        run: |
+          docker compose up -d
+          ./gradlew :api:bootRun --args='--spring.profiles.active=local' > /tmp/app.log 2>&1 &
+          for i in $(seq 1 60); do
+            curl -fsS http://localhost:8080/actuator/health > /dev/null && break
+            sleep 2
+          done
+          curl -fsS http://localhost:8080/v3/api-docs -o openapi.json
+          kill %1 || true
+
+      - name: Upload OpenAPI spec
+        uses: actions/upload-artifact@v4
+        with:
+          name: openapi
+          path: jungwoon-api/openapi.json
+          retention-days: 14
