@@ -1,0 +1,18 @@
+# --- 비밀 값 ---
+.env
+.env.*
+!.env.example
+
+# --- Gradle / Java ---
+.gradle/
+build/
+*.log
+*.jar
+# 래퍼 jar 는 반드시 커밋한다
+!**/gradle/wrapper/gradle-wrapper.jar
+
+# --- IDE / OS ---
+.idea/
+*.iml
+.vscode/
+.DS_Store

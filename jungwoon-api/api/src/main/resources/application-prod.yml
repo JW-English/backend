@@ -1,0 +1,21 @@
+# 운영 프로파일. 모든 비밀 값은 환경변수(또는 Secrets Manager)로 주입한다.
+spring:
+  jpa:
+    show-sql: false
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,prometheus
+
+springdoc:
+  swagger-ui:
+    enabled: false          # 운영에서는 문서 UI 를 닫는다
+  api-docs:
+    enabled: false
+
+logging:
+  level:
+    root: INFO
+    com.jungwoon: INFO

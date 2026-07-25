@@ -1,0 +1,39 @@
+# 로컬 개발용 인프라. 앱은 IDE 또는 ./gradlew :api:bootRun 으로 띄운다.
+# 호스트 포트는 5433/6380 — 5432/6379 는 다른 프로젝트가 쓰고 있어 충돌을 피했다.
+# 다른 포트를 쓰려면 POSTGRES_PORT / REDIS_PORT 환경변수로 덮어쓴다.
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: jungwoon-postgres
+    environment:
+      POSTGRES_DB: jungwoon
+      POSTGRES_USER: jungwoon
+      POSTGRES_PASSWORD: jungwoon
+      TZ: Asia/Seoul
+    ports:
+      - "${POSTGRES_PORT:-5433}:5432"
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U jungwoon -d jungwoon"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  redis:
+    image: redis:7-alpine
+    container_name: jungwoon-redis
+    command: ["redis-server", "--appendonly", "yes"]
+    ports:
+      - "${REDIS_PORT:-6380}:6379"
+    volumes:
+      - redis-data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+volumes:
+  postgres-data:
+  redis-data:
