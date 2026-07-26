@@ -62,6 +62,11 @@ springdoc:
 
 jungwoon:
   version: ${APP_VERSION:dev}
+  jwt:
+    # 운영에서는 반드시 환경변수로 주입한다. 아래 기본값은 로컬 전용이다.
+    secret: ${JWT_SECRET:local-only-secret-please-change-in-production-32bytes+}
+    access-ttl: ${JWT_ACCESS_TTL:30m}
+    refresh-ttl: ${JWT_REFRESH_TTL:14d}
   cors:
     allowed-origins:
       - http://localhost:3000
