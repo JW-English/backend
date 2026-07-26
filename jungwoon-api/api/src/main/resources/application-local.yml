@@ -17,6 +17,9 @@ springdoc:
 
 jungwoon:
   cors:
+    # 로컬 전용 패턴. 운영(application-prod)에는 정확한 도메인만 넣는다.
     allowed-origins:
-      - http://localhost:3000    # 관리자 웹
-      - http://localhost:8081    # Expo 웹 (개발 확인용)
+      - http://localhost:[*]       # 관리자 웹(3000), Expo 웹(8081)
+      - http://127.0.0.1:[*]
+      - http://192.168.*:[*]       # 같은 공유기의 실기기·다른 PC
+      - http://172.*:[*]
