@@ -30,11 +30,14 @@ public class FileStorage {
     private final S3Client s3Client;
     private final S3Presigner presigner;
     private final StorageProperties properties;
+    private final PresignedUrlCache urlCache;
 
-    public FileStorage(S3Client s3Client, S3Presigner presigner, StorageProperties properties) {
+    public FileStorage(S3Client s3Client, S3Presigner presigner, StorageProperties properties,
+                       PresignedUrlCache urlCache) {
         this.s3Client = s3Client;
         this.presigner = presigner;
         this.properties = properties;
+        this.urlCache = urlCache;
     }
 
     /**
@@ -65,16 +68,22 @@ public class FileStorage {
                 properties.uploadUrlTtl().toSeconds());
     }
 
-    /** 열람용 URL. 만료가 있으므로 DB 에는 키만 저장하고 조회 시점에 만든다. */
+    /**
+     * 열람용 URL. 만료가 있으므로 DB 에는 키만 저장하고 조회 시점에 만든다.
+     *
+     * TTL 안에서는 캐시된 같은 URL 을 돌려준다 — 매번 새로 서명하면 클라이언트가
+     * 캐시를 못 해 같은 음원을 계속 다시 받는다.
+     */
     public String presignDownload(String key) {
-        var presigned = presigner.presignGetObject(GetObjectPresignRequest.builder()
-                .signatureDuration(properties.downloadUrlTtl())
-                .getObjectRequest(GetObjectRequest.builder()
-                        .bucket(properties.bucket())
-                        .key(key)
+        return urlCache.get(key, () -> presigner.presignGetObject(GetObjectPresignRequest.builder()
+                        .signatureDuration(properties.downloadUrlTtl())
+                        .getObjectRequest(GetObjectRequest.builder()
+                                .bucket(properties.bucket())
+                                .key(key)
+                                .build())
                         .build())
-                .build());
-        return presigned.url().toString();
+                .url()
+                .toString());
     }
 
     /**

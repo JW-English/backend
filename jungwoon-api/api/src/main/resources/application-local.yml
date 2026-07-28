@@ -1,15 +1,25 @@
 # 로컬 개발 프로파일. docker compose up -d 로 postgres/redis 를 띄운 뒤 사용한다.
 spring:
+  config:
+    # jungwoon-api/.env 를 있으면 읽는다. Spring Boot 는 .env 를 자동으로 읽지 않는다 —
+    # 이 선언이 없으면 파일을 만들어 둬도 아무 값도 적용되지 않는다.
+    # 운영은 이 파일을 쓰지 않고 환경변수/시크릿 관리자로 주입한다.
+    import: optional:file:.env[.properties]
+
+  datasource:
+    # p6spy 를 거쳐 쿼리를 관찰한다. 파라미터가 ? 가 아니라 실제 값으로 찍히고,
+    # 요청당 쿼리 수도 셀 수 있다 (QueryCountFilter). 운영 프로파일은 이 설정이 없다.
+    url: ${DB_URL:jdbc:p6spy:postgresql://localhost:5433/jungwoon}
+    driver-class-name: com.p6spy.engine.spy.P6SpyDriver
+
   jpa:
-    show-sql: true
-    properties:
-      hibernate:
-        format_sql: true
+    # p6spy 가 더 읽기 좋게 찍으므로 Hibernate 자체 SQL 로그는 끈다
+    show-sql: false
 
 logging:
   level:
     com.jungwoon: DEBUG
-    org.hibernate.orm.jdbc.bind: TRACE   # 바인딩 파라미터 확인 (운영에서는 절대 켜지 않는다)
+    p6spy: DEBUG
 
 springdoc:
   swagger-ui:

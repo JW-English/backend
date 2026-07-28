@@ -50,7 +50,7 @@ public class FileController {
      * 서버가 UUID 로 키를 만든다.
      */
     public record PresignRequest(
-            @NotBlank @Pattern(regexp = "homework|qna|avatar", message = "허용되지 않은 저장 위치입니다")
+            @NotBlank @Pattern(regexp = "homework|qna|avatar|listening", message = "허용되지 않은 저장 위치입니다")
             String directory,
             @NotBlank String contentType,
             @NotBlank @Pattern(regexp = "[A-Za-z0-9]{1,5}") String extension
