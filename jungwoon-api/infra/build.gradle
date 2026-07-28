@@ -1,6 +1,7 @@
 // 외부 시스템 어댑터: R2(S3 호환) 스토리지, Redis, 소셜 로그인 API, Expo Push
 dependencies {
     api project(':common')
+    api project(':domain')      // Provider 등 도메인 enum 을 어댑터 계약에 쓴다
 
     implementation 'org.springframework.boot:spring-boot-starter-web'
     implementation 'org.springframework.boot:spring-boot-starter-data-redis'
