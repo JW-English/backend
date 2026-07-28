@@ -66,18 +66,26 @@ public class VocabularyService {
                 .findFinishedByDays(me.id(), dayIds).stream()
                 .collect(Collectors.groupingBy(attempt -> attempt.getDay().getId()));
 
+        // 나갔다 돌아온 응시 — DAY 당 가장 최근 것 하나만 이어 풀게 한다
+        Map<UUID, UUID> inProgress = attemptRepository.findInProgressByDays(me.id(), dayIds).stream()
+                .collect(Collectors.toMap(
+                        attempt -> attempt.getDay().getId(),
+                        QuizAttempt::getId,
+                        (latest, older) -> latest));
+
         return days.stream()
                 .map(day -> DayListItem.of(
                         day,
                         wordCounts.getOrDefault(day.getId(), 0L),
                         attempts.getOrDefault(day.getId(), List.of()).stream()
                                 .sorted(Comparator.comparing(QuizAttempt::getStartedAt))
-                                .toList()))
+                                .toList(),
+                        inProgress.get(day.getId())))
                 .toList();
     }
 
     @Transactional(readOnly = true)
-    public DayDetail getDay(UUID dayId) {
+    public DayDetail getDay(UserPrincipal me, UUID dayId) {
         WordDay day = dayRepository.findOpenDay(dayId, LocalDate.now())
                 .orElseThrow(() -> new BusinessException(ErrorCode.DAY_NOT_OPENED));
 
@@ -86,7 +94,14 @@ public class VocabularyService {
                 .map(WordItem::of)
                 .toList();
 
-        return new DayDetail(day.getId(), day.getDayNo(), day.getTitle(), day.getScheduledDate(), words);
+        UUID inProgressAttemptId = attemptRepository
+                .findInProgressByDays(me.id(), List.of(dayId)).stream()
+                .findFirst()
+                .map(QuizAttempt::getId)
+                .orElse(null);
+
+        return new DayDetail(day.getId(), day.getDayNo(), day.getTitle(), day.getScheduledDate(),
+                words, inProgressAttemptId);
     }
 
     /**

@@ -30,4 +30,15 @@ public interface QuizAttemptRepository extends JpaRepository<QuizAttempt, UUID> 
             where a.student.id = :studentId and a.day.id in :dayIds and a.finishedAt is not null
             """)
     List<QuizAttempt> findFinishedByDays(UUID studentId, List<UUID> dayIds);
+
+    /**
+     * 아직 제출하지 않은 응시. 중도 이탈 후 이어 풀 수 있게 하려면 진입점이 필요하다.
+     * 이게 없으면 나간 응시는 그대로 버려진다.
+     */
+    @Query("""
+            select a from QuizAttempt a
+            where a.student.id = :studentId and a.day.id in :dayIds and a.finishedAt is null
+            order by a.startedAt desc
+            """)
+    List<QuizAttempt> findInProgressByDays(UUID studentId, List<UUID> dayIds);
 }
