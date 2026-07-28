@@ -60,7 +60,16 @@ public class QuizAttempt {
     @Column(name = "correct_count", nullable = false)
     private int correctCount;
 
-    /** DB 생성 컬럼(GENERATED ALWAYS). 애플리케이션은 읽기만 한다. */
+    /**
+     * DB 생성 컬럼(GENERATED ALWAYS). 애플리케이션은 읽기만 한다.
+     *
+     * @Generated 가 없으면 채점 직후 엔티티의 값이 낡은 채로 응답에 실린다 —
+     * DB 에는 20점이 들어갔는데 화면에는 0점이 뜬다.
+     */
+    @org.hibernate.annotations.Generated(event = {
+            org.hibernate.generator.EventType.INSERT,
+            org.hibernate.generator.EventType.UPDATE
+    })
     @Column(name = "score", insertable = false, updatable = false)
     private BigDecimal score;
 
