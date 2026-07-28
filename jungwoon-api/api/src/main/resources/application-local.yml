@@ -1,15 +1,19 @@
 # 로컬 개발 프로파일. docker compose up -d 로 postgres/redis 를 띄운 뒤 사용한다.
 spring:
+  datasource:
+    # p6spy 를 거쳐 쿼리를 관찰한다. 파라미터가 ? 가 아니라 실제 값으로 찍히고,
+    # 요청당 쿼리 수도 셀 수 있다 (QueryCountFilter). 운영 프로파일은 이 설정이 없다.
+    url: ${DB_URL:jdbc:p6spy:postgresql://localhost:5433/jungwoon}
+    driver-class-name: com.p6spy.engine.spy.P6SpyDriver
+
   jpa:
-    show-sql: true
-    properties:
-      hibernate:
-        format_sql: true
+    # p6spy 가 더 읽기 좋게 찍으므로 Hibernate 자체 SQL 로그는 끈다
+    show-sql: false
 
 logging:
   level:
     com.jungwoon: DEBUG
-    org.hibernate.orm.jdbc.bind: TRACE   # 바인딩 파라미터 확인 (운영에서는 절대 켜지 않는다)
+    p6spy: DEBUG
 
 springdoc:
   swagger-ui:
