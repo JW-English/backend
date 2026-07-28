@@ -4,16 +4,17 @@
 사용:
     python3 parse_script.py 스크립트.pdf > script.json
 
-주의: pdftotext 는 반드시 -raw 모드로 쓴다.
-기본/-layout 모드는 커닝 때문에 단어 중간에 공백을 넣는다 ("Jour ney", "mor ning").
-그대로 정렬(alignment)에 넣으면 매칭이 깨진다.
+텍스트 추출은 PyMuPDF 를 쓴다. pdftotext 는 어느 모드로도 깨진다:
+  - 기본/-layout : 커닝 때문에 단어 중간에 공백이 들어간다 ("Jour ney", "f ive")
+  - -raw         : 단어 사이 공백이 사라진다 ("lookingforabutterknifeset")
+둘 다 정렬(alignment) 단계에서 단어 수를 어긋나게 만들어 타임스탬프를 밀어버린다.
 """
 
 from __future__ import annotations
 
 import json
 import re
-import subprocess
+
 import sys
 
 # 문항 시작: "1. 다음을 듣고, ..."
@@ -38,13 +39,10 @@ SENTENCE_END_RE = re.compile(r'(?<=[.!?])["”’\']?\s+')
 
 
 def extract_text(pdf_path: str) -> str:
-    result = subprocess.run(
-        ["pdftotext", "-raw", pdf_path, "-"],
-        capture_output=True,
-        text=True,
-        check=True,
-    )
-    return result.stdout
+    import fitz  # PyMuPDF
+
+    with fitz.open(pdf_path) as doc:
+        return "".join(page.get_text() for page in doc)
 
 
 def split_sentences(text: str) -> list[str]:
