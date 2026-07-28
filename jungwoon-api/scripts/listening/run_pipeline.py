@@ -199,8 +199,15 @@ def validate(script_path: Path, timings_path: Path) -> list[str]:
     if total and aligned / total < 0.95:
         warnings.append(f"정렬률 낮음: {aligned / total * 100:.1f}%")
 
+    # 대본이 비어 있는 문항. 파싱이 그 회차에서 실패했다는 신호다
+    empty = sorted((int(no) for no, rows in timings.items() if not rows))
+    if empty:
+        warnings.append(f"대본이 비어 있는 문항: {empty}")
+
     # 첫 문장이 한국어 안내 구간에 걸리면 발화 속도가 비정상적으로 낮게 나온다
     for no, rows in timings.items():
+        if not rows:
+            continue
         first = rows[0]
         if first["startMs"] is None or first["endMs"] is None:
             continue

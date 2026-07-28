@@ -67,25 +67,28 @@ def detect_lead_offset(audio_path: Path, duration: float) -> float:
 
     보정으로는 못 고친다 — 정렬 결과 자체가 틀리기 때문이다. 그래서 자르고 나서 맞춘다.
 
-    경계는 <b>앞부분에서 가장 긴 무음</b>이다. 안내와 본문 사이 쉼이 문장 사이 쉼보다 길다.
-    (1번 1.55초 / 14번 1.53초 vs 문장 사이 0.3~0.9초)
-    """
-    head_limit = duration * 0.4
-    gaps: list[tuple[float, float]] = []
+    경계는 <b>앞부분에서 마지막으로 나오는 긴 무음</b>이다.
 
-    starts = SILENCE_START_RE.findall(_silence_log(audio_path))
-    ends = SILENCE_END_RE.findall(_silence_log(audio_path))
+    "가장 긴 무음"으로 잡으면 안 된다 — 안내 문구 자체가 중간에 쉬기 때문이다.
+    (2020 6월 8번: 안내 안의 쉼이 2.2초로 안내→본문 경계 1.55초보다 길어
+     4.4초를 경계로 잡았고, 실제 영어는 13.1초부터였다)
+
+    안내는 항상 파일 맨 앞에 있고 본문보다 짧다. 실측한 경계는 전부 20% 이내였다
+    (14.5% / 17.8% / 19.3%). 30% 안쪽만 보면 본문 중간을 자를 위험이 없다.
+    """
+    head_limit = duration * 0.3
+    candidates: list[float] = []
+
+    log = _silence_log(audio_path)
+    starts = SILENCE_START_RE.findall(log)
+    ends = SILENCE_END_RE.findall(log)
     for start, end in zip(starts, ends):
         start, end = float(start), float(end)
-        if end <= head_limit:
-            gaps.append((end - start, end))
+        # 문장 사이 쉼(0.3~0.9초)과 구분되는 크기여야 한다
+        if end <= head_limit and (end - start) >= 1.0:
+            candidates.append(end)
 
-    if not gaps:
-        return 0.0
-
-    longest_gap, boundary = max(gaps)
-    # 문장 사이 쉼과 구분되는 크기여야 한다
-    return boundary if longest_gap >= 1.0 else 0.0
+    return max(candidates) if candidates else 0.0
 
 
 def map_audio_files(audio_dir: Path) -> dict[int, Path]:
