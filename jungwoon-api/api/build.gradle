@@ -20,6 +20,10 @@ dependencies {
 
     // Boot 4 부터 Flyway 자동설정은 별도 모듈(spring-boot-flyway)에 들어있다.
     implementation 'org.springframework.boot:spring-boot-flyway'
+    // 개발 환경 전용 쿼리 로깅. 운영 jar 에는 들어가지 않는다
+    compileOnly "p6spy:p6spy:${p6spyVersion}"
+    developmentOnly "p6spy:p6spy:${p6spyVersion}"
+
     implementation 'org.flywaydb:flyway-core'
     runtimeOnly 'org.flywaydb:flyway-database-postgresql'
     runtimeOnly 'org.postgresql:postgresql'
