@@ -91,6 +91,41 @@ def detect_lead_offset(audio_path: Path, duration: float) -> float:
     return max(candidates) if candidates else 0.0
 
 
+MIN_WORDS_PER_SECOND = 1.2
+
+
+def fix_slow_first_sentence(timings: list[dict], audio_path: Path) -> bool:
+    """
+    첫 문장이 여전히 안내 구간에 걸쳐 있으면 시작점을 되짚는다.
+
+    안내 구간을 잘라내는 것으로 대부분 해결되지만, 안내가 유난히 긴 문항
+    (16~17 처럼 문제를 두 개 읽어주는 경우)에서는 탐색 범위 밖이라 남는다.
+
+    첫 문장의 <b>끝</b>은 정렬이 맞춘 값이라 신뢰할 수 있다. 그래서 끝에서 거꾸로
+    "말하는 데 필요한 최소 시간"을 뺀 지점 앞의 마지막 무음을 시작으로 본다.
+    """
+    first = timings[0] if timings else None
+    if not first or first["startMs"] is None or first["endMs"] is None:
+        return False
+
+    seconds = (first["endMs"] - first["startMs"]) / 1000
+    if seconds <= 0 or first["wordCount"] / seconds >= MIN_WORDS_PER_SECOND:
+        return False
+
+    # 단어당 0.25초는 아무리 빨라도 필요하다
+    latest_possible = first["endMs"] - max(400, int(first["wordCount"] * 250))
+
+    log = _silence_log(audio_path)
+    ends = [float(e) * 1000 for e in SILENCE_END_RE.findall(log)]
+    candidates = [e for e in ends if first["startMs"] < e < latest_possible]
+    if not candidates:
+        return False
+
+    first["correctedFrom"] = first["startMs"]
+    first["startMs"] = int(max(candidates))
+    return True
+
+
 def map_audio_files(audio_dir: Path) -> dict[int, Path]:
     mapping: dict[int, Path] = {}
     for path in sorted(audio_dir.glob("*.mp3")):
@@ -184,6 +219,8 @@ def main() -> None:
         timings = align_item(
             whisperx, model, metadata, args.device, path, item["sentences"]
         )
+        fix_slow_first_sentence(timings, path)
+
         # 구간이 뒤집힌 채로 넘어가면 DB 제약에서 터진다
         for row in timings:
             if row["startMs"] is not None and row["endMs"] is not None:
