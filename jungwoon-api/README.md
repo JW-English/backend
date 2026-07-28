@@ -51,6 +51,37 @@ open http://localhost:8080/swagger-ui.html
 - 로컬 기본값은 `application.yml` 에 있고, 운영 값은 전부 환경변수로 주입한다 (`.env.example` 참고).
 - JWT 시크릿·소셜 Client Secret·DB 비밀번호는 절대 커밋하지 않는다.
 
+## 쿼리 관찰 (개발)
+
+`local` 프로파일은 p6spy 를 거쳐 DB 에 붙는다. 요청이 끝나면 쿼리 수가 한 줄로 찍힌다.
+
+```
+GET /api/listening/exams → 3 queries, 4ms
+GET /api/homework/assignments → 27 queries, 41ms  ⚠️ N+1 의심
+```
+
+**쿼리 수가 데이터 양에 따라 늘어나면 N+1 이다.** 화면을 추가한 뒤 한 번씩 확인한다.
+p6spy 는 `compileOnly + developmentOnly` 라 운영 jar 에 들어가지 않는다.
+
+## 미디어 스토리지 (MinIO → R2)
+
+로컬은 MinIO, 운영은 Cloudflare R2 다. 코드는 AWS SDK 하나로 같고 **설정만 바뀐다.**
+
+```bash
+STORAGE_ENDPOINT=https://<ACCOUNT_ID>.r2.cloudflarestorage.com
+STORAGE_REGION=auto            # R2 는 리전 개념이 없다
+STORAGE_BUCKET=jungwoon-media
+STORAGE_ACCESS_KEY=...         # R2 API 토큰의 Access Key ID
+STORAGE_SECRET_KEY=...         # Secret Access Key
+STORAGE_PATH_STYLE=true
+```
+
+R2 를 고른 이유는 **egress(전송)가 무료**이기 때문이다. 듣기 음원은 반복 재생되는
+콘텐츠라 전송량이 저장량보다 훨씬 크다. S3 는 GB당 $0.09 가 붙는다.
+
+주의: 브라우저(관리자 웹)에서 미디어를 직접 재생하려면 **R2 버킷에 CORS 규칙**이 필요하다.
+네이티브 앱은 CORS 대상이 아니라 설정 없이도 동작한다.
+
 ## 다음 작업 (P1 — 인증)
 
 - [ ] `JwtTokenProvider` / `JwtAuthenticationFilter` → `SecurityConfig` 에 등록
