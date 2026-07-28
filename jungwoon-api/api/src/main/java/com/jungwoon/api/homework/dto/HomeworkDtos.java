@@ -96,6 +96,7 @@ public final class HomeworkDtos {
                     submission.getImages().stream()
                             .map(image -> new ImageItem(
                                     image.getId(),
+                                    image.getStorageKey(),
                                     urlResolver.apply(image.getStorageKey()),
                                     image.getSortOrder(),
                                     image.getWidth(),
@@ -113,8 +114,16 @@ public final class HomeworkDtos {
         }
     }
 
-    /** 이미지는 키가 아니라 만료형 URL 로 내려준다. 키를 노출할 이유가 없다. */
-    public record ImageItem(UUID id, String url, int sortOrder, Integer width, Integer height) {
+    /**
+     * 표시용 URL 은 만료되므로 조회 시점에 만든다.
+     *
+     * storageKey 도 함께 내려주는 이유는 재제출(교체) 때문이다 — 남길 사진을 다시 지정하려면
+     * 클라이언트가 키를 알아야 한다. URL 에서 키를 되짚는 방식은 스토리지가 R2 로 바뀌면
+     * (버킷이 경로에 없다) 깨진다. 키는 추측 불가능한 UUID 이고 버킷은 비공개라,
+     * 소유자에게 자기 사진의 키를 알려주는 것 자체는 위험하지 않다.
+     */
+    public record ImageItem(UUID id, String storageKey, String url, int sortOrder,
+                            Integer width, Integer height) {
     }
 
     public record CommentItem(UUID id, String body, String imageUrl, boolean fromTeacher,

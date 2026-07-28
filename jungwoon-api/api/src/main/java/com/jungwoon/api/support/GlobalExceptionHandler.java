@@ -11,6 +11,7 @@ import org.springframework.security.access.AccessDeniedException;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
+import org.springframework.web.servlet.resource.NoResourceFoundException;
 
 import java.util.LinkedHashMap;
 import java.util.Map;
@@ -51,6 +52,18 @@ public class GlobalExceptionHandler {
         ProblemDetail problem = ProblemDetail.forStatusAndDetail(
                 HttpStatus.FORBIDDEN, ErrorCode.FORBIDDEN.defaultMessage());
         problem.setProperty("code", ErrorCode.FORBIDDEN.name());
+        return problem;
+    }
+
+    /**
+     * 존재하지 않는 경로. 이걸 잡지 않으면 정적 리소스 처리로 흘러가
+     * 오타 하나가 500 으로 보고되고 에러 로그가 오염된다.
+     */
+    @ExceptionHandler(NoResourceFoundException.class)
+    public ProblemDetail handleNoResource(NoResourceFoundException e) {
+        ProblemDetail problem = ProblemDetail.forStatusAndDetail(
+                HttpStatus.NOT_FOUND, "요청한 경로를 찾을 수 없습니다.");
+        problem.setProperty("code", ErrorCode.NOT_FOUND.name());
         return problem;
     }
 

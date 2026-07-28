@@ -109,6 +109,7 @@ public final class AdminHomeworkDtos {
                     submission.getSubmittedAt(),
                     submission.getImages().stream()
                             .map(image -> new ImageItem(image.getId(),
+                                    image.getStorageKey(),
                                     urlResolver.apply(image.getStorageKey()),
                                     image.getSortOrder(), image.getWidth(), image.getHeight()))
                             .toList());
