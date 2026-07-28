@@ -28,9 +28,12 @@ public final class VocabularyDtos {
             long wordCount,
             int attemptCount,
             BigDecimal firstScore,
-            BigDecimal bestScore
+            BigDecimal bestScore,
+            /** 제출하지 않고 나간 응시가 있으면 그 id — 앱이 "이어서 풀기"를 띄운다 */
+            UUID inProgressAttemptId
     ) {
-        public static DayListItem of(WordDay day, long wordCount, List<QuizAttempt> attempts) {
+        public static DayListItem of(WordDay day, long wordCount, List<QuizAttempt> attempts,
+                                     UUID inProgressAttemptId) {
             return new DayListItem(
                     day.getId(),
                     day.getDayNo(),
@@ -43,7 +46,8 @@ public final class VocabularyDtos {
                             .map(QuizAttempt::getScore)
                             .filter(java.util.Objects::nonNull)
                             .max(Comparator.naturalOrder())
-                            .orElse(null));
+                            .orElse(null),
+                    inProgressAttemptId);
         }
     }
 
@@ -66,7 +70,9 @@ public final class VocabularyDtos {
             int dayNo,
             String title,
             LocalDate scheduledDate,
-            List<WordItem> words
+            List<WordItem> words,
+            /** 이어 풀 응시가 있으면 그 id */
+            UUID inProgressAttemptId
     ) {
     }
 }

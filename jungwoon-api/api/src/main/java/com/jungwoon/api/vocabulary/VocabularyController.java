@@ -32,8 +32,8 @@ public class VocabularyController {
     }
 
     @GetMapping("/days/{dayId}")
-    @Operation(summary = "단어장", description = "해당 DAY 의 단어 목록")
-    public DayDetail day(@PathVariable UUID dayId) {
-        return vocabularyService.getDay(dayId);
+    @Operation(summary = "단어장", description = "해당 DAY 의 단어 목록. 이어 풀 응시가 있으면 그 id 도 준다")
+    public DayDetail day(@AuthenticationPrincipal UserPrincipal me, @PathVariable UUID dayId) {
+        return vocabularyService.getDay(me, dayId);
     }
 }
