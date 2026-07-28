@@ -67,6 +67,10 @@ jungwoon:
     secret: ${JWT_SECRET:local-only-secret-please-change-in-production-32bytes+}
     access-ttl: ${JWT_ACCESS_TTL:30m}
     refresh-ttl: ${JWT_REFRESH_TTL:14d}
+  auth:
+    cookie:
+      # 로컬은 http 라 secure 를 켤 수 없다. 운영에서는 반드시 true.
+      secure: ${AUTH_COOKIE_SECURE:false}
   storage:
     # 로컬은 MinIO, 운영은 Cloudflare R2 — 코드는 동일하고 엔드포인트·키만 바뀐다
     endpoint: ${STORAGE_ENDPOINT:http://localhost:9000}

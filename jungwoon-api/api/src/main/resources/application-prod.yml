@@ -3,6 +3,11 @@ spring:
   jpa:
     show-sql: false
 
+jungwoon:
+  auth:
+    cookie:
+      secure: true      # HTTPS 전용. 평문으로 Refresh Token 이 나가면 안 된다
+
 management:
   endpoints:
     web:
