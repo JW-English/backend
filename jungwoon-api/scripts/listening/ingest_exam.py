@@ -21,8 +21,9 @@ import re
 import subprocess
 from pathlib import Path
 
-# "01_문제 01.mp3", "16_문제 16~17.mp3" → 문항 번호들
-FILE_ITEM_RE = re.compile(r"(\d+)(?:\s*[~～]\s*(\d+))?\.mp3$")
+# "1.mp3", "16-17.mp3", "01_문제 01.mp3" → 문항 번호들.
+# 하이픈을 빼먹으면 "16-17.mp3" 가 17번 하나로만 잡혀 16번 음원이 사라진다.
+FILE_ITEM_RE = re.compile(r"(\d+)(?:\s*[-~～]\s*(\d+))?\.mp3$")
 
 
 def quote(value) -> str:
@@ -46,10 +47,13 @@ def duration_ms(path: Path) -> int | None:
 
 def map_audio_files(audio_dir: Path) -> dict[int, tuple[Path, str]]:
     """
-    문항 번호 → (mp3 경로, 스토리지 키 조각).
+    문항 번호 → (mp3 경로, 스토리지에 올라가 있는 파일명).
 
-    16~17 처럼 묶인 파일은 두 번호에 같은 파일·같은 키를 매핑한다.
-    키는 원본 파일명을 쓰지 않는다 — 한글·공백이 들어가면 URL 인코딩에서 사고가 난다.
+    16-17 처럼 묶인 파일은 두 번호에 같은 파일·같은 키를 매핑한다.
+
+    파일명을 새로 만들지 않고 <b>있는 그대로</b> 쓴다. 음원은 이미 스토리지에 올라가 있고,
+    스크립트가 임의로 이름을 지어내면 앱이 없는 키를 가리키게 된다.
+    (그래서 원본 파일명에 한글·공백이 없어야 한다 — URL 인코딩에서 사고가 난다)
     """
     mapping: dict[int, tuple[Path, str]] = {}
     for path in sorted(audio_dir.glob("*.mp3")):
@@ -58,10 +62,11 @@ def map_audio_files(audio_dir: Path) -> dict[int, tuple[Path, str]]:
             continue
         start = int(match.group(1))
         end = int(match.group(2)) if match.group(2) else start
+        if end < start:
+            start, end = end, start
 
-        name = f"item-{start:02d}" if start == end else f"item-{start:02d}-{end:02d}"
         for item_no in range(start, end + 1):
-            mapping[item_no] = (path, name)
+            mapping[item_no] = (path, path.name)
     return mapping
 
 
@@ -96,9 +101,9 @@ ON CONFLICT (year, exam_type, grade) DO UPDATE SET title = EXCLUDED.title;
             print(f"-- ⚠️ {item_no}번 음원을 찾지 못했습니다", flush=True)
             continue
 
-        path, name = entry
+        path, filename = entry
         # 묶음 문항은 같은 파일을 공유하므로 키도 같다
-        key = f"{args.key_prefix}/{args.year}/{args.exam_type.lower()}/{name}.mp3"
+        key = f"{args.key_prefix}/{args.year}/{args.exam_type.lower()}/{filename}"
         ms = duration_ms(path)
 
         print(f"""

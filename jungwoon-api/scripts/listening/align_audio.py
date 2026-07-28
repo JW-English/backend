@@ -19,7 +19,9 @@ import sys
 import unicodedata
 from pathlib import Path
 
-FILE_ITEM_RE = re.compile(r"(\d+)(?:\s*[~～]\s*(\d+))?\.mp3$")
+# "1.mp3", "16-17.mp3", "16~17.mp3" 모두 받는다.
+# 하이픈을 빼먹으면 "16-17.mp3" 가 17번 하나로만 잡혀 16번 음원이 사라진다.
+FILE_ITEM_RE = re.compile(r"(\d+)(?:\s*[-~～]\s*(\d+))?\.mp3$")
 
 
 def normalize(text: str) -> str:
