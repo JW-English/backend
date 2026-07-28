@@ -47,6 +47,16 @@ public final class AuthDtos {
         }
     }
 
+    /**
+     * 관리자 웹 응답. Refresh Token 이 없는 것이 핵심이다 —
+     * 쿠키로만 전달해 JS 가 읽지 못하게 한다.
+     */
+    public record WebTokenResponse(String accessToken, long expiresIn) {
+        public static WebTokenResponse of(TokenPair pair) {
+            return new WebTokenResponse(pair.accessToken(), pair.expiresIn());
+        }
+    }
+
     /** 내 정보. 이름·전화번호 등 최소한만 내려보낸다. */
     public record MeResponse(
             UUID id,
