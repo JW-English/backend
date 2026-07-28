@@ -35,54 +35,55 @@ def normalize(text: str) -> str:
     )
 
 
+SILENCE_START_RE = re.compile(r"silence_start:\s*([0-9.]+)")
 SILENCE_END_RE = re.compile(r"silence_end:\s*([0-9.]+)")
 
-
-def silence_ends(audio_path: Path) -> list[float]:
-    """무음이 끝나는 지점들(초). 한국어 안내와 영어 본문의 경계를 찾는 데 쓴다."""
-    import subprocess
-
-    result = subprocess.run(
-        ["ffmpeg", "-i", str(audio_path), "-af", "silencedetect=noise=-35dB:d=0.6", "-f", "null", "-"],
-        capture_output=True, text=True,
-    )
-    return [float(m) for m in SILENCE_END_RE.findall(result.stderr)]
+_silence_cache: dict[str, str] = {}
 
 
-def fix_leading_offset(timings: list[dict], audio_path: Path) -> None:
+def _silence_log(audio_path: Path) -> str:
+    """ffmpeg 무음 탐지 로그. 같은 파일을 여러 번 재지 않도록 캐시한다."""
+    key = str(audio_path)
+    if key not in _silence_cache:
+        import subprocess
+
+        result = subprocess.run(
+            ["ffmpeg", "-i", key, "-af", "silencedetect=noise=-35dB:d=0.3", "-f", "null", "-"],
+            capture_output=True, text=True,
+        )
+        _silence_cache[key] = result.stderr
+    return _silence_cache[key]
+
+
+def detect_lead_offset(audio_path: Path, duration: float) -> float:
     """
-    첫 문장의 시작을 보정한다.
+    한국어 안내가 끝나고 영어 본문이 시작하는 지점(초)을 찾는다.
 
-    수능 듣기 mp3 는 앞에 한국어 안내("다음을 듣고, …")가 붙어 있는데 대본에는 없다.
-    정렬기는 맞출 곳이 없으니 첫 단어를 안내 구간에 끼워 넣는다.
-    (실측: "Hello, viewers." 가 2.3초로 잡혔지만 실제 영어는 9.7초부터 시작)
+    수능 듣기 mp3 는 앞에 "대화를 듣고, …" 안내가 붙어 있는데 대본에는 없다.
+    이 구간을 남겨두면 정렬기가 <b>맞출 곳이 없는데도 영어 단어를 억지로 끼워 넣는다</b>.
+    (실측 14번: 안내가 12.7초까지인데 "Hey, Jake." 가 6.3초에 배치됨)
 
-    안내와 본문 사이에는 긴 무음이 있으므로, 첫 문장이 끝나기 전에 끝나는 무음 중
-    가장 늦은 지점을 시작으로 본다.
+    보정으로는 못 고친다 — 정렬 결과 자체가 틀리기 때문이다. 그래서 자르고 나서 맞춘다.
 
-    상한은 <b>두 번째 문장의 시작이 아니라 첫 문장 자신의 끝</b>이다.
-    두 번째 문장 기준으로 잡으면 첫 문장의 끝을 넘어서는 지점이 뽑혀
-    시작 > 끝인 구간이 만들어진다 (12·15번에서 실제로 발생).
-
-    또 문장을 읽는 데 걸리는 최소 시간을 남긴다. 무음이 문장 끝에 바짝 붙어 있으면
-    말할 시간이 없는 0초짜리 구간이 되기 때문이다.
+    경계는 <b>앞부분에서 가장 긴 무음</b>이다. 안내와 본문 사이 쉼이 문장 사이 쉼보다 길다.
+    (1번 1.55초 / 14번 1.53초 vs 문장 사이 0.3~0.9초)
     """
-    first = timings[0]
-    if first["startMs"] is None or first["endMs"] is None:
-        return
+    head_limit = duration * 0.4
+    gaps: list[tuple[float, float]] = []
 
-    # 단어당 0.2초는 아무리 빨라도 필요하다
-    min_duration_ms = max(300, first["wordCount"] * 200)
-    upper_bound = first["endMs"] - min_duration_ms
+    starts = SILENCE_START_RE.findall(_silence_log(audio_path))
+    ends = SILENCE_END_RE.findall(_silence_log(audio_path))
+    for start, end in zip(starts, ends):
+        start, end = float(start), float(end)
+        if end <= head_limit:
+            gaps.append((end - start, end))
 
-    candidates = [end for end in silence_ends(audio_path) if end * 1000 < upper_bound]
-    if not candidates:
-        return
+    if not gaps:
+        return 0.0
 
-    corrected = int(max(candidates) * 1000)
-    if corrected > first["startMs"]:
-        first["correctedFrom"] = first["startMs"]
-        first["startMs"] = corrected
+    longest_gap, boundary = max(gaps)
+    # 문장 사이 쉼과 구분되는 크기여야 한다
+    return boundary if longest_gap >= 1.0 else 0.0
 
 
 def map_audio_files(audio_dir: Path) -> dict[int, Path]:
@@ -109,6 +110,10 @@ def align_item(whisperx, model, metadata, device, audio_path: Path,
     audio = whisperx.load_audio(str(audio_path))
     full_text = " ".join(normalize(s["textEn"]) for s in sentences)
 
+    # 한국어 안내 구간을 잘라내고 맞춘다. 남겨두면 정렬기가 그 안에 영어 단어를 끼워 넣는다
+    lead_offset = detect_lead_offset(audio_path, len(audio) / 16000.0)
+    audio = audio[int(lead_offset * 16000):]
+
     duration = len(audio) / 16000.0
     segments = [{"text": full_text, "start": 0.0, "end": duration}]
 
@@ -128,10 +133,12 @@ def align_item(whisperx, model, metadata, device, audio_path: Path,
         starts = [w["start"] for w in chunk if w.get("start") is not None]
         ends = [w["end"] for w in chunk if w.get("end") is not None]
 
+        # 잘라낸 만큼 되돌려 원본 기준 시각으로 만든다
+        offset_ms = int(lead_offset * 1000)
         timings.append({
             "seq": sentence["seq"],
-            "startMs": int(min(starts) * 1000) if starts else None,
-            "endMs": int(max(ends) * 1000) if ends else None,
+            "startMs": int(min(starts) * 1000) + offset_ms if starts else None,
+            "endMs": int(max(ends) * 1000) + offset_ms if ends else None,
             "wordCount": token_count,
             "alignedWords": len(starts),
         })
@@ -172,15 +179,11 @@ def main() -> None:
         timings = align_item(
             whisperx, model, metadata, args.device, path, item["sentences"]
         )
-        fix_leading_offset(timings, path)
-
-        # 보정이 구간을 뒤집지 않았는지 확인한다. 뒤집힌 채로 넘어가면 DB 제약에서 터진다
+        # 구간이 뒤집힌 채로 넘어가면 DB 제약에서 터진다
         for row in timings:
             if row["startMs"] is not None and row["endMs"] is not None:
                 if row["startMs"] > row["endMs"]:
-                    print(f"    ⚠️ {item['itemNo']}번 {row['seq']}번 문장: 시작>끝 — 보정 취소",
-                          file=sys.stderr)
-                    row["startMs"] = row.pop("correctedFrom", row["startMs"])
+                    print(f"    ⚠️ {item['itemNo']}번 {row['seq']}번 문장: 시작>끝", file=sys.stderr)
 
         output[str(item["itemNo"])] = timings
 
