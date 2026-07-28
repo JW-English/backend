@@ -152,6 +152,11 @@ public class QuizService {
         }
 
         attempt.finish(correctCount);
+
+        // score 는 DB 생성 컬럼이라 UPDATE 가 나가야 값이 채워진다.
+        // flush 없이 DTO 를 만들면 낡은 값(0점)이 응답에 실린다
+        attemptRepository.flush();
+
         return ResultResponse.of(attempt);
     }
 

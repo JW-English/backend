@@ -163,6 +163,10 @@ class QuizApiTest extends IntegrationTestSupport {
         }
         assertThat(graded.get("correctCount").asInt()).isEqualTo((int) expected);
         // "찍으면 만점이 안 나온다"는 단언은 넣지 않는다 — 1/1024 확률로 실패하는 플래키 테스트가 된다
+
+        // score 는 DB 생성 컬럼이다. 채점 직후 응답에 낡은 값(0)이 실리는 사고가 있었다
+        assertThat(graded.get("score").asDouble())
+                .isEqualTo(expected * 100.0 / graded.get("totalCount").asInt());
     }
 
     @Test
