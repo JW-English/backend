@@ -67,6 +67,17 @@ jungwoon:
     secret: ${JWT_SECRET:local-only-secret-please-change-in-production-32bytes+}
     access-ttl: ${JWT_ACCESS_TTL:30m}
     refresh-ttl: ${JWT_REFRESH_TTL:14d}
+  storage:
+    # 로컬은 MinIO, 운영은 Cloudflare R2 — 코드는 동일하고 엔드포인트·키만 바뀐다
+    endpoint: ${STORAGE_ENDPOINT:http://localhost:9000}
+    region: ${STORAGE_REGION:auto}
+    bucket: ${STORAGE_BUCKET:jungwoon-media}
+    access-key: ${STORAGE_ACCESS_KEY:jungwoon}
+    secret-key: ${STORAGE_SECRET_KEY:jungwoon-dev-secret}
+    path-style-access: ${STORAGE_PATH_STYLE:true}   # MinIO 는 필수, R2 도 지원
+    upload-url-ttl: 10m
+    download-url-ttl: 1h
+
   cors:
     allowed-origins:
       - http://localhost:3000

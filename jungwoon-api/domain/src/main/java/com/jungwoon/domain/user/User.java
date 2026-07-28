@@ -105,4 +105,12 @@ public class User extends BaseEntity {
     public void withdraw() {
         this.status = UserStatus.WITHDRAWN;
     }
+
+    /**
+     * 역할 변경. 일반 API 에는 이 경로를 열지 않는다 —
+     * 선생님 승급은 DB 직접 변경 또는 슈퍼관리자 전용 경로로만 한다.
+     */
+    public void changeRole(Role role) {
+        this.role = role;
+    }
 }
