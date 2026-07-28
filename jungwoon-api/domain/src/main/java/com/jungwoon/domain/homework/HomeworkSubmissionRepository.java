@@ -26,6 +26,13 @@ public interface HomeworkSubmissionRepository extends JpaRepository<HomeworkSubm
             """)
     List<HomeworkSubmission> findAllByAssignment(UUID assignmentId);
 
+    /** 목록 화면용. 숙제마다 따로 조회하면 N+1 이 된다. */
+    @Query("""
+            select s from HomeworkSubmission s
+            where s.student.id = :studentId and s.assignment.id in :assignmentIds
+            """)
+    List<HomeworkSubmission> findAllByStudentAndAssignments(UUID studentId, List<UUID> assignmentIds);
+
     @Query("""
             select s from HomeworkSubmission s
             join fetch s.student
