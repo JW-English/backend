@@ -8,6 +8,8 @@ import com.jungwoon.api.listening.dto.ListeningDtos.ProgressRequest;
 import com.jungwoon.api.listening.dto.ListeningDtos.SentenceItem;
 import com.jungwoon.common.error.NotFoundException;
 import com.jungwoon.domain.listening.Exam;
+import com.jungwoon.domain.listening.ExamCompletedCount;
+import com.jungwoon.domain.listening.ExamItemCount;
 import com.jungwoon.domain.listening.ExamRepository;
 import com.jungwoon.domain.listening.ListeningItem;
 import com.jungwoon.domain.listening.ListeningItemRepository;
@@ -51,18 +53,36 @@ public class ListeningService {
         this.fileStorage = fileStorage;
     }
 
+    /**
+     * 시험 목록.
+     *
+     * 시험마다 문항·진도를 조회하면 26개 시험에서 요청당 50번 넘는 쿼리가 나간다.
+     * 문항 수와 완료 수를 각각 한 번에 집계해 총 3번으로 끝낸다.
+     */
     @Transactional(readOnly = true)
     public List<ExamListItem> listExams(UserPrincipal me, Integer year) {
         List<Exam> exams = year != null
                 ? examRepository.findAllByYearOrderByExamTypeAsc(year)
                 : examRepository.findAllByOrderByYearDescExamTypeAsc();
 
+        if (exams.isEmpty()) {
+            return List.of();
+        }
+
+        List<UUID> examIds = exams.stream().map(Exam::getId).toList();
+
+        Map<UUID, Long> itemCounts = itemRepository.countByExams(examIds).stream()
+                .collect(Collectors.toMap(ExamItemCount::examId, ExamItemCount::count));
+
+        Map<UUID, Long> completedCounts = progressRepository
+                .countCompletedByExams(me.id(), examIds).stream()
+                .collect(Collectors.toMap(ExamCompletedCount::examId, ExamCompletedCount::count));
+
         return exams.stream()
-                .map(exam -> {
-                    List<ListeningItem> items = itemRepository.findAllByExamIdOrderByItemNoAsc(exam.getId());
-                    long completed = countCompleted(me, items);
-                    return ExamListItem.of(exam, items.size(), (int) completed);
-                })
+                .map(exam -> ExamListItem.of(
+                        exam,
+                        itemCounts.getOrDefault(exam.getId(), 0L).intValue(),
+                        completedCounts.getOrDefault(exam.getId(), 0L).intValue()))
                 .toList();
     }
 
@@ -128,14 +148,5 @@ public class ListeningService {
         List<UUID> itemIds = items.stream().map(ListeningItem::getId).toList();
         return progressRepository.findAllByStudentAndItems(me.id(), itemIds).stream()
                 .collect(Collectors.toMap(p -> p.getId().getItemId(), Function.identity()));
-    }
-
-    private long countCompleted(UserPrincipal me, List<ListeningItem> items) {
-        if (items.isEmpty()) {
-            return 0;
-        }
-        return progressOf(me, items).values().stream()
-                .filter(p -> p.getCompletedAt() != null)
-                .count();
     }
 }
