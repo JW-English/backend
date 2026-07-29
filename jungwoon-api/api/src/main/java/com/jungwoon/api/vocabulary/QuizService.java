@@ -5,6 +5,7 @@ import com.jungwoon.api.vocabulary.dto.QuizDtos.AnswerRequest;
 import com.jungwoon.api.vocabulary.dto.QuizDtos.AttemptResponse;
 import com.jungwoon.api.vocabulary.dto.QuizDtos.ResultResponse;
 import com.jungwoon.api.vocabulary.dto.QuizDtos.StartRequest;
+import com.jungwoon.api.vocabulary.dto.QuizDtos.AttemptHistoryItem;
 import com.jungwoon.api.vocabulary.dto.QuizDtos.WrongNoteItem;
 import com.jungwoon.common.error.BusinessException;
 import com.jungwoon.common.error.ErrorCode;
@@ -23,6 +24,7 @@ import com.jungwoon.domain.vocabulary.WordDayRepository;
 import com.jungwoon.domain.vocabulary.WordRepository;
 import com.jungwoon.domain.vocabulary.WrongNote;
 import com.jungwoon.domain.vocabulary.WrongNoteRepository;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -167,6 +169,28 @@ public class QuizService {
             throw new BusinessException(ErrorCode.INVALID_REQUEST, "아직 제출하지 않은 시험입니다.");
         }
         return ResultResponse.of(attempt);
+    }
+
+    /**
+     * 단어시험 응시 이력. 마이페이지에서 쓴다.
+     *
+     * 재응시가 무제한이라 쌓이므로 페이지 단위로 끊는다.
+     */
+    @Transactional(readOnly = true)
+    public List<AttemptHistoryItem> history(UserPrincipal me, int page, int size) {
+        return attemptRepository
+                .findHistory(me.id(), PageRequest.of(page, Math.min(size, 100)))
+                .stream()
+                .map(a -> new AttemptHistoryItem(
+                        a.getId(),
+                        a.getDay().getId(),
+                        a.getDay().getDayNo(),
+                        a.getDay().getTitle(),
+                        a.getTotalCount(),
+                        a.getCorrectCount(),
+                        a.getScore() == null ? 0 : a.getScore().doubleValue(),
+                        a.getFinishedAt()))
+                .toList();
     }
 
     @Transactional(readOnly = true)

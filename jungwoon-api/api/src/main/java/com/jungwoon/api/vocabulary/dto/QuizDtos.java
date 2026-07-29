@@ -121,4 +121,18 @@ public final class QuizDtos {
             Instant lastWrongAt
     ) {
     }
+
+    /** 마이페이지 단어시험 이력 한 줄 */
+    public record AttemptHistoryItem(
+            UUID id,
+            UUID dayId,
+            int dayNo,
+            String dayTitle,
+            int totalCount,
+            int correctCount,
+            /** 0~100 */
+            double score,
+            Instant finishedAt
+    ) {
+    }
 }

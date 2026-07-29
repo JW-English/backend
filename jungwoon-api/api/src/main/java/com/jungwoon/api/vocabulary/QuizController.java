@@ -5,6 +5,7 @@ import com.jungwoon.api.vocabulary.dto.QuizDtos.AnswerRequest;
 import com.jungwoon.api.vocabulary.dto.QuizDtos.AttemptResponse;
 import com.jungwoon.api.vocabulary.dto.QuizDtos.ResultResponse;
 import com.jungwoon.api.vocabulary.dto.QuizDtos.StartRequest;
+import com.jungwoon.api.vocabulary.dto.QuizDtos.AttemptHistoryItem;
 import com.jungwoon.api.vocabulary.dto.QuizDtos.WrongNoteItem;
 import io.swagger.v3.oas.annotations.Operation;
 import jakarta.validation.Valid;
@@ -16,6 +17,7 @@ import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 import java.util.List;
@@ -66,6 +68,15 @@ public class QuizController {
     public ResultResponse result(@AuthenticationPrincipal UserPrincipal me,
                                  @PathVariable UUID attemptId) {
         return quizService.getResult(me, attemptId);
+    }
+
+    @GetMapping("/attempts")
+    @Operation(summary = "단어시험 응시 이력",
+            description = "마이페이지용. 끝낸 응시만 최신순. 재응시가 쌓이므로 페이지로 끊는다")
+    public List<AttemptHistoryItem> history(@AuthenticationPrincipal UserPrincipal me,
+                                            @RequestParam(defaultValue = "0") int page,
+                                            @RequestParam(defaultValue = "20") int size) {
+        return quizService.history(me, page, size);
     }
 
     @GetMapping("/wrong-notes")

@@ -21,6 +21,8 @@ public enum ErrorCode {
     ACCOUNT_LOCKED(423, "로그인 시도가 많아 잠긴 계정입니다. 잠시 후 다시 시도해 주세요."),
     SOCIAL_ALREADY_LINKED(409, "이미 다른 방법으로 가입된 계정입니다."),
     WITHDRAWN_USER(403, "탈퇴한 계정입니다."),
+    PASSWORD_MISMATCH(400, "현재 비밀번호가 일치하지 않습니다."),
+    PASSWORD_NOT_SET(400, "소셜 로그인 계정은 비밀번호를 변경할 수 없습니다."),
 
     // 숙제
     ASSIGNMENT_CLOSED(400, "마감된 숙제입니다."),
