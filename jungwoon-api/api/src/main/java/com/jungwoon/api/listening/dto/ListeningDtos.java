@@ -73,6 +73,8 @@ public final class ListeningDtos {
             int itemNo,
             String itemType,
             String questionText,
+            /** "2026학년도 수능" — 문항 화면에서 어느 회차인지 보여주려고 함께 내려준다 */
+            String examLabel,
             /** 만료형 재생 URL. 키가 아니라 URL 로 내려준다 */
             String audioUrl,
             Integer durationMs,
