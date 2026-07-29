@@ -1,6 +1,8 @@
 package com.jungwoon.api.listening;
 
 import com.jungwoon.api.auth.UserPrincipal;
+import com.jungwoon.api.listening.dto.ListeningDtos.DownloadItem;
+import com.jungwoon.api.listening.dto.ListeningDtos.DownloadManifest;
 import com.jungwoon.api.listening.dto.ListeningDtos.ExamListItem;
 import com.jungwoon.api.listening.dto.ListeningDtos.ItemDetail;
 import com.jungwoon.api.listening.dto.ListeningDtos.ItemListItem;
@@ -149,6 +151,48 @@ public class ListeningService {
                 exam.getId(),
                 exam.getYear() + "학년도 " + exam.getExamType().label(),
                 tracks);
+    }
+
+    /**
+     * 오프라인 다운로드 매니페스트.
+     *
+     * 회차 하나가 음원 51MB + 문장 280여 개다. 문항 상세를 17번 부르면
+     * 요청도 많고 중간에 실패했을 때 반쯤 받은 상태를 다루기 어렵다.
+     * 문장은 일괄 조회해 N+1 을 피한다.
+     */
+    @Transactional(readOnly = true)
+    public DownloadManifest getDownloadManifest(UUID examId) {
+        Exam exam = examRepository.findById(examId)
+                .orElseThrow(() -> new NotFoundException("시험을 찾을 수 없습니다."));
+
+        List<ListeningItem> items = itemRepository.findAllByExamIdOrderByItemNoAsc(examId);
+        List<UUID> itemIds = items.stream().map(ListeningItem::getId).toList();
+
+        Map<UUID, List<SentenceItem>> sentencesByItem = itemIds.isEmpty()
+                ? Map.of()
+                : sentenceRepository.findAllByItemIdInOrderByItemIdAscSeqAsc(itemIds).stream()
+                        .collect(Collectors.groupingBy(
+                                s -> s.getItem().getId(),
+                                Collectors.mapping(SentenceItem::of, Collectors.toList())));
+
+        String introKey = exam.getAudioKey();
+        boolean hasIntro = introKey != null && !introKey.isBlank();
+
+        return new DownloadManifest(
+                exam.getId(),
+                exam.getYear() + "학년도 " + exam.getExamType().label(),
+                hasIntro ? fileStorage.presignDownload(introKey) : null,
+                hasIntro ? introKey : null,
+                items.stream()
+                        .map(item -> new DownloadItem(
+                                item.getId(),
+                                item.getItemNo(),
+                                item.getQuestionText(),
+                                fileStorage.presignDownload(item.getAudioKey()),
+                                item.getAudioKey(),
+                                item.getDurationMs(),
+                                sentencesByItem.getOrDefault(item.getId(), List.of())))
+                        .toList());
     }
 
     /** "16번" + 17 → "16-17번" · "16-17번" + 18 → "16-18번" */

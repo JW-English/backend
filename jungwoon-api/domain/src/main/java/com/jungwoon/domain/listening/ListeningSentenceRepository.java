@@ -9,5 +9,11 @@ public interface ListeningSentenceRepository extends JpaRepository<ListeningSent
 
     List<ListeningSentence> findAllByItemIdOrderBySeqAsc(UUID itemId);
 
+    /**
+     * 오프라인 매니페스트용 일괄 조회.
+     * 문항마다 부르면 한 회차에 17번 나간다.
+     */
+    List<ListeningSentence> findAllByItemIdInOrderByItemIdAscSeqAsc(List<UUID> itemIds);
+
     void deleteByItemId(UUID itemId);
 }
