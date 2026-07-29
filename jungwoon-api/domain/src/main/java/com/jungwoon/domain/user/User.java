@@ -106,6 +106,16 @@ public class User extends BaseEntity {
         this.status = UserStatus.WITHDRAWN;
     }
 
+    /** 소셜 전용 계정은 비밀번호가 없다 */
+    public boolean hasPassword() {
+        return passwordHash != null;
+    }
+
+    /** 해싱은 서비스 책임이다. 엔티티는 이미 해싱된 값만 받는다 */
+    public void changePassword(String newPasswordHash) {
+        this.passwordHash = newPasswordHash;
+    }
+
     /**
      * 역할 변경. 일반 API 에는 이 경로를 열지 않는다 —
      * 선생님 승급은 DB 직접 변경 또는 슈퍼관리자 전용 경로로만 한다.

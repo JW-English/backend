@@ -1,6 +1,8 @@
 package com.jungwoon.domain.vocabulary;
 
+import com.jungwoon.domain.user.StudentSummaryProjections;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.Query;
 
 import java.util.List;
@@ -41,4 +43,26 @@ public interface QuizAttemptRepository extends JpaRepository<QuizAttempt, UUID> 
             order by a.startedAt desc
             """)
     List<QuizAttempt> findInProgressByDays(UUID studentId, List<UUID> dayIds);
+
+    /**
+     * 마이페이지 단어시험 이력. 끝낸 응시만, 최신순.
+     * DAY 이름을 함께 보여주므로 fetch join 한다.
+     */
+    @Query("""
+            select a from QuizAttempt a
+            join fetch a.day
+            where a.student.id = :studentId and a.finishedAt is not null
+            order by a.finishedAt desc
+            """)
+    List<QuizAttempt> findHistory(UUID studentId, Pageable pageable);
+
+    /** 평균·최고점 요약. 목록을 읽어 계산하지 않고 집계로 끝낸다 */
+    @Query("""
+            select count(a)      as attemptCount,
+                   avg(a.score)  as averageScore,
+                   max(a.score)  as bestScore
+            from QuizAttempt a
+            where a.student.id = :studentId and a.finishedAt is not null
+            """)
+    StudentSummaryProjections.QuizStats summarizeForStudent(UUID studentId);
 }

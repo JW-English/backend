@@ -1,5 +1,6 @@
 package com.jungwoon.domain.homework;
 
+import com.jungwoon.domain.user.StudentSummaryProjections;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 
@@ -36,4 +37,21 @@ public interface AssignmentRepository extends JpaRepository<Assignment, UUID> {
             order by a.dueDate desc
             """)
     List<Assignment> findAllForTeacher(UUID studentId);
+
+    /**
+     * 마이페이지 숙제 제출률. 목록을 읽어 세지 않고 집계 한 번으로 끝낸다.
+     *
+     * 분모는 학생이 볼 수 있는 숙제 전체이고, 제출 여부는 좌측 조인으로 센다.
+     */
+    @Query("""
+            select count(a)                                                as total,
+                   count(s.id)                                             as submitted,
+                   count(case when s.status = com.jungwoon.domain.homework.SubmissionStatus.REVIEWED
+                              then 1 end)                                  as reviewed
+            from Assignment a
+            left join HomeworkSubmission s
+                   on s.assignment.id = a.id and s.student.id = :studentId
+            where a.student.id = :studentId or (a.student is null and a.classId is null)
+            """)
+    StudentSummaryProjections.HomeworkCounts summarizeForStudent(UUID studentId);
 }
