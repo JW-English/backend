@@ -93,6 +93,33 @@ public final class ListeningDtos {
     ) {
     }
 
+    /**
+     * 오프라인 다운로드용. 회차 하나를 기기에 담는 데 필요한 것을 한 번에 준다.
+     *
+     * 문항 상세를 17번 부르면 요청도 많고 중간에 실패하면 반쯤 받은 상태가 된다.
+     */
+    public record DownloadItem(
+            UUID id,
+            int itemNo,
+            String questionText,
+            String audioUrl,
+            /** 기기에 저장할 때 쓸 이름. presigned URL 은 만료되므로 키를 따로 준다 */
+            String audioKey,
+            Integer durationMs,
+            List<SentenceItem> sentences
+    ) {
+    }
+
+    public record DownloadManifest(
+            UUID examId,
+            String examLabel,
+            /** 안내 방송. 없는 회차면 null */
+            String introUrl,
+            String introKey,
+            List<DownloadItem> items
+    ) {
+    }
+
     public record ItemDetail(
             UUID id,
             int itemNo,
