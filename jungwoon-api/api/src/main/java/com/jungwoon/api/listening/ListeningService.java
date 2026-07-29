@@ -118,11 +118,15 @@ public class ListeningService {
                 .findById(new ListeningProgress.ListeningProgressId(me.id(), itemId))
                 .orElse(null);
 
+        // findWithExam 으로 이미 fetch join 돼 있어 추가 쿼리가 나가지 않는다
+        Exam exam = item.getExam();
+
         return new ItemDetail(
                 item.getId(),
                 item.getItemNo(),
                 item.getItemType(),
                 item.getQuestionText(),
+                exam.getYear() + "학년도 " + exam.getExamType().label(),
                 // 음원 키가 아니라 만료형 URL 을 준다. 비공개 버킷이라 URL 없이는 못 받는다
                 fileStorage.presignDownload(item.getAudioKey()),
                 item.getDurationMs(),
