@@ -4,6 +4,7 @@ import com.jungwoon.api.auth.UserPrincipal;
 import com.jungwoon.api.listening.dto.ListeningDtos.ExamListItem;
 import com.jungwoon.api.listening.dto.ListeningDtos.ItemDetail;
 import com.jungwoon.api.listening.dto.ListeningDtos.ItemListItem;
+import com.jungwoon.api.listening.dto.ListeningDtos.Playlist;
 import com.jungwoon.api.listening.dto.ListeningDtos.ProgressRequest;
 import io.swagger.v3.oas.annotations.Operation;
 import jakarta.validation.Valid;
@@ -43,6 +44,13 @@ public class ListeningController {
     public List<ItemListItem> items(@AuthenticationPrincipal UserPrincipal me,
                                     @PathVariable UUID examId) {
         return listeningService.listItems(me, examId);
+    }
+
+    @GetMapping("/exams/{examId}/playlist")
+    @Operation(summary = "전체 듣기 재생 목록",
+            description = "안내 방송 → 1번 → … 순서. 문항마다 상세를 부르지 않도록 URL 을 한 번에 준다")
+    public Playlist playlist(@PathVariable UUID examId) {
+        return listeningService.getPlaylist(examId);
     }
 
     @GetMapping("/items/{itemId}")
