@@ -1,6 +1,7 @@
 package com.jungwoon.api.listening;
 
 import com.jungwoon.api.auth.UserPrincipal;
+import com.jungwoon.api.listening.dto.ListeningDtos.DownloadManifest;
 import com.jungwoon.api.listening.dto.ListeningDtos.ExamListItem;
 import com.jungwoon.api.listening.dto.ListeningDtos.ItemDetail;
 import com.jungwoon.api.listening.dto.ListeningDtos.ItemListItem;
@@ -51,6 +52,13 @@ public class ListeningController {
             description = "안내 방송 → 1번 → … 순서. 문항마다 상세를 부르지 않도록 URL 을 한 번에 준다")
     public Playlist playlist(@PathVariable UUID examId) {
         return listeningService.getPlaylist(examId);
+    }
+
+    @GetMapping("/exams/{examId}/download")
+    @Operation(summary = "오프라인 다운로드 매니페스트",
+            description = "회차 하나를 기기에 담는 데 필요한 음원 URL·대본·타임스탬프를 한 번에 준다")
+    public DownloadManifest downloadManifest(@PathVariable UUID examId) {
+        return listeningService.getDownloadManifest(examId);
     }
 
     @GetMapping("/items/{itemId}")
