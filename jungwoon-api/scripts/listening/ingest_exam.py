@@ -89,9 +89,11 @@ def main() -> None:
     print("-- 생성물입니다. ingest_exam.py 로 다시 만들 수 있습니다.")
     print("BEGIN;")
     print(f"""
-INSERT INTO exams (year, exam_type, grade, title)
-VALUES ({args.year}, {quote(args.exam_type)}, {args.grade}, {quote(args.title)})
-ON CONFLICT (year, exam_type, grade) DO UPDATE SET title = EXCLUDED.title;
+INSERT INTO exams (year, exam_type, grade, title, audio_key)
+VALUES ({args.year}, {quote(args.exam_type)}, {args.grade}, {quote(args.title)},
+        {quote(f"{args.key_prefix}/{args.year}/{args.exam_type.lower()}/intro.mp3")})
+ON CONFLICT (year, exam_type, grade) DO UPDATE
+    SET title = EXCLUDED.title, audio_key = EXCLUDED.audio_key;
 """)
 
     for item in items:

@@ -4,6 +4,8 @@ import com.jungwoon.api.auth.UserPrincipal;
 import com.jungwoon.api.listening.dto.ListeningDtos.ExamListItem;
 import com.jungwoon.api.listening.dto.ListeningDtos.ItemDetail;
 import com.jungwoon.api.listening.dto.ListeningDtos.ItemListItem;
+import com.jungwoon.api.listening.dto.ListeningDtos.Playlist;
+import com.jungwoon.api.listening.dto.ListeningDtos.PlaylistTrack;
 import com.jungwoon.api.listening.dto.ListeningDtos.ProgressRequest;
 import com.jungwoon.api.listening.dto.ListeningDtos.SentenceItem;
 import com.jungwoon.common.error.NotFoundException;
@@ -20,6 +22,7 @@ import com.jungwoon.infra.storage.FileStorage;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
@@ -103,6 +106,55 @@ public class ListeningService {
                             p != null && p.getCompletedAt() != null);
                 })
                 .toList();
+    }
+
+    /**
+     * 전체 듣기 재생 목록. 안내 방송 → 1번 → … 순서다.
+     *
+     * 문항마다 상세를 부르면 요청이 17번 나가므로 한 번에 내려준다.
+     */
+    @Transactional(readOnly = true)
+    public Playlist getPlaylist(UUID examId) {
+        Exam exam = examRepository.findById(examId)
+                .orElseThrow(() -> new NotFoundException("시험을 찾을 수 없습니다."));
+
+        List<PlaylistTrack> tracks = new ArrayList<>();
+
+        // 안내 방송은 회차에 하나뿐이라 exams.audio_key 에 있다. 없는 회차는 건너뛴다
+        String introKey = exam.getAudioKey();
+        if (introKey != null && !introKey.isBlank()) {
+            tracks.add(new PlaylistTrack(
+                    "INTRO", null, "안내 방송", fileStorage.presignDownload(introKey), null));
+        }
+
+        // 16·17 번은 한 파일을 공유한다. 그대로 넣으면 같은 음원이 두 번 재생된다
+        String lastKey = null;
+        for (ListeningItem item : itemRepository.findAllByExamIdOrderByItemNoAsc(examId)) {
+            if (item.getAudioKey().equals(lastKey)) {
+                PlaylistTrack merged = tracks.removeLast();
+                tracks.add(new PlaylistTrack(
+                        merged.kind(), merged.itemId(),
+                        mergeLabel(merged.label(), item.getItemNo()),
+                        merged.audioUrl(), merged.durationMs()));
+                continue;
+            }
+
+            lastKey = item.getAudioKey();
+            tracks.add(new PlaylistTrack(
+                    "ITEM", item.getId(), item.getItemNo() + "번",
+                    fileStorage.presignDownload(item.getAudioKey()), item.getDurationMs()));
+        }
+
+        return new Playlist(
+                exam.getId(),
+                exam.getYear() + "학년도 " + exam.getExamType().label(),
+                tracks);
+    }
+
+    /** "16번" + 17 → "16-17번" · "16-17번" + 18 → "16-18번" */
+    private static String mergeLabel(String label, int itemNo) {
+        String head = label.replace("번", "").split("-")[0];
+        return head + "-" + itemNo + "번";
     }
 
     @Transactional(readOnly = true)

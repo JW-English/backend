@@ -68,6 +68,31 @@ public final class ListeningDtos {
         }
     }
 
+    /**
+     * 전체 듣기 한 트랙.
+     *
+     * 16·17 번처럼 여러 문항이 한 음원을 공유하면 트랙 하나로 합쳐 내려간다.
+     * 그대로 나열하면 같은 파일이 두 번 재생된다.
+     */
+    public record PlaylistTrack(
+            /** INTRO | ITEM */
+            String kind,
+            /** INTRO 면 null */
+            UUID itemId,
+            /** 화면에 쓸 이름. "안내 방송", "1번", "16-17번" */
+            String label,
+            String audioUrl,
+            Integer durationMs
+    ) {
+    }
+
+    public record Playlist(
+            UUID examId,
+            String examLabel,
+            List<PlaylistTrack> tracks
+    ) {
+    }
+
     public record ItemDetail(
             UUID id,
             int itemNo,
