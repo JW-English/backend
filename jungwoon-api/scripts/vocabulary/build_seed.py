@@ -20,6 +20,7 @@ import csv
 import json
 import re
 import sys
+from datetime import date, timedelta
 from pathlib import Path
 
 from normalize import normalize_headword
@@ -57,6 +58,10 @@ def main() -> None:
                         choices=["BEGINNER", "INTERMEDIATE", "ADVANCED"])
     parser.add_argument("--day-prefix", default="", help="DAY 제목 접두어 (예: '베이직')")
     parser.add_argument("--generated", help="generate.py 결과 JSONL. CSV 의 뜻보다 우선한다")
+    parser.add_argument("--open-from", metavar="YYYY-MM-DD",
+                        help="DAY 1 을 이 날짜에 열고 하루에 하나씩 연다")
+    parser.add_argument("--open-all", action="store_true",
+                        help="모든 DAY 를 지금 연다 (검증·시연용)")
     args = parser.parse_args()
 
     # 생성 결과가 있으면 그쪽을 쓴다. 예문은 여기에만 있다
@@ -141,13 +146,26 @@ def main() -> None:
     print(f"-- 단어 {len(by_word)} · DAY {len(day_titles)} · 배치 {len(placements)}")
     print("BEGIN;")
 
+    # scheduled_date 가 비어 있으면 학생 화면에 그 DAY 가 뜨지 않는다.
+    # findOpenDays 가 "예약일이 있고 오늘 이전" 인 것만 고른다 — 선생님이
+    # 진도에 맞춰 여는 구조다. 날짜를 지정하지 않으면 닫힌 채로 들어간다
+    opened_from = date.fromisoformat(args.open_from) if args.open_from else None
+
+    def scheduled(day_no: int) -> str:
+        if args.open_all:
+            return quote(date.today().isoformat())
+        if opened_from:
+            return quote((opened_from + timedelta(days=day_no - 1)).isoformat())
+        return "NULL"
+
     print("\n-- DAY")
     for day_no in sorted(day_titles):
         title = day_titles[day_no] or f"{args.day_prefix}DAY {day_no:02d}".strip()
         print(
-            f"INSERT INTO word_days (level, day_no, title) "
-            f"VALUES ({quote(args.level)}, {day_no}, {quote(title)}) "
-            f"ON CONFLICT (level, day_no) DO UPDATE SET title = EXCLUDED.title;"
+            f"INSERT INTO word_days (level, day_no, title, scheduled_date) "
+            f"VALUES ({quote(args.level)}, {day_no}, {quote(title)}, {scheduled(day_no)}) "
+            f"ON CONFLICT (level, day_no) DO UPDATE SET "
+            f"title = EXCLUDED.title, scheduled_date = EXCLUDED.scheduled_date;"
         )
 
     # meaning_ko 가 NOT NULL 이라 뜻 없이 내보내면 트랜잭션이 통째로 깨진다.
@@ -185,7 +203,14 @@ def main() -> None:
     print("\nCOMMIT;")
 
     # ── 4) 사람이 봐야 할 것
-    print(f"\n✅ 단어 {len(ready)} · DAY {len(day_titles)} · 배치 {len(seen_pairs)}", file=sys.stderr)
+    if args.open_all:
+        opened = f"전부 오늘({date.today()}) 개방"
+    elif opened_from:
+        opened = f"{opened_from} 부터 하루 하나씩 개방"
+    else:
+        opened = "닫힘 (--open-from 또는 --open-all 로 열 수 있습니다)"
+    print(f"\n✅ 단어 {len(ready)} · DAY {len(day_titles)} · 배치 {len(seen_pairs)} · {opened}",
+          file=sys.stderr)
     if missing:
         print(f"⚠️  뜻이 없어 제외한 단어 {len(missing)}개 (generate.py 를 돌리세요)", file=sys.stderr)
         for w in missing[:10]:
