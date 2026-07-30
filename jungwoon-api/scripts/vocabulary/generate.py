@@ -30,6 +30,8 @@ from pathlib import Path
 
 from openai import OpenAI
 
+from normalize import normalize_headword
+
 
 def load_env() -> None:
     """옆에 있는 .env 에서 키를 읽는다 (git 에 올라가지 않는다).
@@ -123,7 +125,7 @@ def load_words(paths: list[str], only_missing: bool) -> list[dict]:
     by_word: dict[str, dict] = {}
     for path in paths:
         for r in csv.DictReader(Path(path).open(encoding="utf-8")):
-            word = re.sub(r"\s+", " ", r["headword"]).strip()
+            word = normalize_headword(r["headword"])
             if not word:
                 continue
             entry = by_word.setdefault(word, {"headword": word, "sets": set(), "hint": ""})
