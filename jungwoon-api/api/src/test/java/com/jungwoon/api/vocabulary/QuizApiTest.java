@@ -2,6 +2,7 @@ package com.jungwoon.api.vocabulary;
 
 import com.jungwoon.api.IntegrationTestSupport;
 import com.jungwoon.domain.vocabulary.Word;
+import com.jungwoon.domain.vocabulary.VocabLevel;
 import com.jungwoon.domain.vocabulary.WordDay;
 import com.jungwoon.domain.vocabulary.WordDayItem;
 import com.jungwoon.domain.vocabulary.WordDayItemRepository;
@@ -18,6 +19,10 @@ import tools.jackson.databind.ObjectMapper;
 import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.Map;
+import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.atomic.AtomicInteger;
 
@@ -69,9 +74,9 @@ class QuizApiTest extends IntegrationTestSupport {
         return token;
     }
 
-    private WordDay createDay(int grade, LocalDate scheduledDate, int wordCount) {
+    private WordDay createDay(VocabLevel level, LocalDate scheduledDate, int wordCount) {
         WordDay day = dayRepository.save(WordDay.builder()
-                .grade(grade)
+                .level(level)
                 .dayNo(DAY_SEQ.incrementAndGet())
                 .scheduledDate(scheduledDate)
                 .title("테스트 DAY")
@@ -108,7 +113,7 @@ class QuizApiTest extends IntegrationTestSupport {
     @DisplayName("출제 응답에는 정답이 들어있지 않다")
     void questionsHideAnswer() throws Exception {
         String token = signUpAndOnboard(2);
-        WordDay day = createDay(2, LocalDate.now().minusDays(1), 10);
+        WordDay day = createDay(VocabLevel.INTERMEDIATE, LocalDate.now().minusDays(1), 10);
 
         JsonNode attempt = startQuiz(token, day.getId(), 5);
 
@@ -126,7 +131,7 @@ class QuizApiTest extends IntegrationTestSupport {
     @DisplayName("서버가 채점한다 — 정답을 모른 채 찍으면 만점이 나오지 않는다")
     void serverGrades() throws Exception {
         String token = signUpAndOnboard(2);
-        WordDay day = createDay(2, LocalDate.now().minusDays(1), 10);
+        WordDay day = createDay(VocabLevel.INTERMEDIATE, LocalDate.now().minusDays(1), 10);
 
         JsonNode attempt = startQuiz(token, day.getId(), 5);
         UUID attemptId = UUID.fromString(attempt.get("attemptId").asText());
@@ -170,10 +175,131 @@ class QuizApiTest extends IntegrationTestSupport {
     }
 
     @Test
+    @DisplayName("문항 수를 지정하지 않으면 DAY 의 단어가 전부 출제된다")
+    void defaultsToWholeDay() throws Exception {
+        String token = signUpAndOnboard(2);
+        WordDay day = createDay(VocabLevel.INTERMEDIATE, LocalDate.now().minusDays(1), 37);
+
+        String response = mockMvc.perform(post("/api/quiz/attempts")
+                        .header("Authorization", "Bearer " + token)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"dayId":"%s"}
+                                """.formatted(day.getId())))
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.totalCount").value(37))
+                .andReturn().getResponse().getContentAsString();
+
+        // 같은 단어가 두 번 나오면 "전부 출제"가 아니라 중복이다
+        JsonNode attempt = objectMapper.readTree(response);
+        Set<Long> wordIds = new HashSet<>();
+        for (JsonNode question : attempt.get("questions")) {
+            assertThat(wordIds.add(question.get("wordId").asLong())).isTrue();
+        }
+        assertThat(wordIds).hasSize(37);
+    }
+
+    @Test
+    @DisplayName("합격은 정답률 90% 이상이다")
+    void passesAtNinetyPercent() throws Exception {
+        String token = signUpAndOnboard(2);
+        WordDay day = createDay(VocabLevel.INTERMEDIATE, LocalDate.now().minusDays(1), 10);
+
+        // 10문항 중 9개를 맞히면 90% 로 합격, 8개면 80% 로 불합격이어야 한다
+        assertThat(passedWith(token, day, 9)).isTrue();
+        assertThat(passedWith(token, day, 8)).isFalse();
+    }
+
+    /** 정답을 correctCount 개만 맞히고 제출한 뒤 합격 여부를 돌려준다. */
+    private boolean passedWith(String token, WordDay day, int correctCount) throws Exception {
+        JsonNode attempt = startQuiz(token, day.getId(), 10);
+        UUID attemptId = UUID.fromString(attempt.get("attemptId").asText());
+
+        // 정답은 응답에 없다. 먼저 다 찍고 제출해 공개된 정답을 본 뒤,
+        // 새 응시에서 그 단어들의 정답을 그대로 고른다
+        Map<Long, Integer> answerKey = revealAnswers(token, attempt, attemptId);
+
+        JsonNode retry = startQuiz(token, day.getId(), 10);
+        UUID retryId = UUID.fromString(retry.get("attemptId").asText());
+
+        int given = 0;
+        for (JsonNode question : retry.get("questions")) {
+            long wordId = question.get("wordId").asLong();
+            int correct = answerKey.get(wordId);
+            // 보기 순서는 응시마다 다시 섞이므로 정답 텍스트로 다시 찾는다
+            String correctText = choiceTextOf(answerKey, attempt, wordId, correct);
+
+            int pick = indexOf(question.get("choices"), correctText);
+            if (given >= correctCount || pick < 0) {
+                pick = (pick + 1) % question.get("choices").size();  // 일부러 틀린다
+            } else {
+                given++;
+            }
+            submitAnswer(token, retryId, wordId, pick);
+        }
+
+        String result = mockMvc.perform(post("/api/quiz/attempts/%s/submit".formatted(retryId))
+                        .header("Authorization", "Bearer " + token))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.passPercent").value(90))
+                .andReturn().getResponse().getContentAsString();
+
+        JsonNode graded = objectMapper.readTree(result);
+        assertThat(graded.get("correctCount").asInt()).isEqualTo(correctCount);
+        return graded.get("passed").asBoolean();
+    }
+
+    private Map<Long, Integer> revealAnswers(String token, JsonNode attempt, UUID attemptId)
+            throws Exception {
+        for (JsonNode question : attempt.get("questions")) {
+            submitAnswer(token, attemptId, question.get("wordId").asLong(), 0);
+        }
+        String result = mockMvc.perform(post("/api/quiz/attempts/%s/submit".formatted(attemptId))
+                        .header("Authorization", "Bearer " + token))
+                .andExpect(status().isOk())
+                .andReturn().getResponse().getContentAsString();
+
+        Map<Long, Integer> key = new HashMap<>();
+        for (JsonNode review : objectMapper.readTree(result).get("reviews")) {
+            key.put(review.get("wordId").asLong(), review.get("correctIndex").asInt());
+        }
+        return key;
+    }
+
+    private String choiceTextOf(Map<Long, Integer> key, JsonNode attempt, long wordId, int index) {
+        for (JsonNode question : attempt.get("questions")) {
+            if (question.get("wordId").asLong() == wordId) {
+                return question.get("choices").get(index).asText();
+            }
+        }
+        return "";
+    }
+
+    private int indexOf(JsonNode choices, String text) {
+        for (int i = 0; i < choices.size(); i++) {
+            if (choices.get(i).asText().equals(text)) {
+                return i;
+            }
+        }
+        return -1;
+    }
+
+    private void submitAnswer(String token, UUID attemptId, long wordId, int index)
+            throws Exception {
+        mockMvc.perform(post("/api/quiz/attempts/%s/answers".formatted(attemptId))
+                        .header("Authorization", "Bearer " + token)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"wordId":%d,"selectedIndex":%d}
+                                """.formatted(wordId, index)))
+                .andExpect(status().isNoContent());
+    }
+
+    @Test
     @DisplayName("이미 제출한 시험은 다시 제출할 수 없다")
     void cannotSubmitTwice() throws Exception {
         String token = signUpAndOnboard(2);
-        WordDay day = createDay(2, LocalDate.now().minusDays(1), 10);
+        WordDay day = createDay(VocabLevel.INTERMEDIATE, LocalDate.now().minusDays(1), 10);
         UUID attemptId = UUID.fromString(startQuiz(token, day.getId(), 4).get("attemptId").asText());
 
         mockMvc.perform(post("/api/quiz/attempts/%s/submit".formatted(attemptId))
@@ -190,7 +316,7 @@ class QuizApiTest extends IntegrationTestSupport {
     @DisplayName("아직 열리지 않은 DAY 는 조회도 응시도 막힌다")
     void unopenedDayIsBlocked() throws Exception {
         String token = signUpAndOnboard(2);
-        WordDay future = createDay(2, LocalDate.now().plusDays(7), 10);
+        WordDay future = createDay(VocabLevel.INTERMEDIATE, LocalDate.now().plusDays(7), 10);
 
         mockMvc.perform(get("/api/vocabulary/days/" + future.getId())
                         .header("Authorization", "Bearer " + token))
@@ -210,7 +336,7 @@ class QuizApiTest extends IntegrationTestSupport {
     @DisplayName("남의 응시 기록은 조회도 제출도 할 수 없다 (IDOR)")
     void cannotTouchOthersAttempt() throws Exception {
         String victim = signUpAndOnboard(2);
-        WordDay day = createDay(2, LocalDate.now().minusDays(1), 10);
+        WordDay day = createDay(VocabLevel.INTERMEDIATE, LocalDate.now().minusDays(1), 10);
         UUID attemptId = UUID.fromString(startQuiz(victim, day.getId(), 4).get("attemptId").asText());
 
         String attacker = signUpAndOnboard(2);
@@ -228,7 +354,7 @@ class QuizApiTest extends IntegrationTestSupport {
     @DisplayName("틀린 단어는 오답노트에 쌓이고, 맞힌 단어는 들어가지 않는다")
     void wrongNotesAccumulate() throws Exception {
         String token = signUpAndOnboard(2);
-        WordDay day = createDay(2, LocalDate.now().minusDays(1), 10);
+        WordDay day = createDay(VocabLevel.INTERMEDIATE, LocalDate.now().minusDays(1), 10);
 
         JsonNode attempt = startQuiz(token, day.getId(), 5);
         UUID attemptId = UUID.fromString(attempt.get("attemptId").asText());

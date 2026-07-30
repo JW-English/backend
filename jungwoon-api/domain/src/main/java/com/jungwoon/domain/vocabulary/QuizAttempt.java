@@ -34,6 +34,9 @@ import java.util.UUID;
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
 public class QuizAttempt {
 
+    /** 합격 기준 정답률(%). 단어는 외웠거나 못 외웠거나라 기준을 높게 잡는다. */
+    public static final int PASS_PERCENT = 90;
+
     @Id
     @UuidGenerator(style = UuidGenerator.Style.TIME)
     @Column(name = "id", nullable = false, updatable = false)
@@ -100,5 +103,15 @@ public class QuizAttempt {
     public void finish(int correctCount) {
         this.correctCount = correctCount;
         this.finishedAt = Instant.now();
+    }
+
+    /**
+     * 합격 여부. 정답률 90% 이상이어야 한다.
+     *
+     * score 는 DB 생성 컬럼이라 flush 전에는 비어 있다. 그래서 여기서는
+     * 정답 수로 직접 판정한다 — score 를 보면 제출 직후 항상 불합격이 된다.
+     */
+    public boolean isPassed() {
+        return totalCount > 0 && correctCount * 100 >= totalCount * PASS_PERCENT;
     }
 }
