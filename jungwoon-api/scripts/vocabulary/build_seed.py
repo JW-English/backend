@@ -22,6 +22,8 @@ import re
 import sys
 from pathlib import Path
 
+from normalize import normalize_headword
+
 # 뜻 구분자. ';' 가 뜻 단위, ',' 는 같은 뜻 안의 유의어다.
 # "진보, 발전; 진전, 진행" → ["진보, 발전", "진전, 진행"]
 MEANING_SPLIT = re.compile(r"\s*;\s*")
@@ -31,11 +33,6 @@ def quote(value) -> str:
     if value is None or value == "":
         return "NULL"
     return "'" + str(value).replace("'", "''") + "'"
-
-
-def normalize_headword(word: str) -> str:
-    """표제어 정규화. 소문자화는 하지 않는다 — 고유명사가 섞일 수 있다."""
-    return re.sub(r"\s+", " ", word).strip()
 
 
 def to_meanings_json(meanings) -> str:
@@ -153,9 +150,13 @@ def main() -> None:
             f"ON CONFLICT (level, day_no) DO UPDATE SET title = EXCLUDED.title;"
         )
 
+    # meaning_ko 가 NOT NULL 이라 뜻 없이 내보내면 트랜잭션이 통째로 깨진다.
+    # 생성이 덜 끝난 상태에서도 된 것까지는 적재되도록 빼고 간다
+    ready = {w: v for w, v in by_word.items() if v["meaning_ko"]}
+
     print("\n-- 단어")
-    for word in sorted(by_word):
-        v = by_word[word]
+    for word in sorted(ready):
+        v = ready[word]
         tags = "ARRAY[" + quote(v["type"]) + "]" if v["type"] else "NULL"
         print(
             f"INSERT INTO words (headword, meaning_ko, meanings, example_en, example_ko, tags) "
@@ -170,7 +171,7 @@ def main() -> None:
     # 같은 단어가 같은 DAY 에 두 번 오면 PK 충돌이므로 미리 접는다
     seen_pairs = set()
     for word, day_no, sort_order in placements:
-        if (word, day_no) in seen_pairs:
+        if word not in ready or (word, day_no) in seen_pairs:
             continue
         seen_pairs.add((word, day_no))
         print(
@@ -184,9 +185,9 @@ def main() -> None:
     print("\nCOMMIT;")
 
     # ── 4) 사람이 봐야 할 것
-    print(f"\n✅ 단어 {len(by_word)} · DAY {len(day_titles)} · 배치 {len(seen_pairs)}", file=sys.stderr)
+    print(f"\n✅ 단어 {len(ready)} · DAY {len(day_titles)} · 배치 {len(seen_pairs)}", file=sys.stderr)
     if missing:
-        print(f"⚠️  뜻이 비어 적재되지 않을 단어 {len(missing)}개", file=sys.stderr)
+        print(f"⚠️  뜻이 없어 제외한 단어 {len(missing)}개 (generate.py 를 돌리세요)", file=sys.stderr)
         for w in missing[:10]:
             print(f"     {w}", file=sys.stderr)
         if len(missing) > 10:
