@@ -103,6 +103,17 @@ public class User extends BaseEntity {
         this.grade = grade;
         this.school = school;
         this.onboardedAt = Instant.now();
+
+        // 어휘 레벨은 선생님이 정하지만, 비어 있으면 앱에서 어느 레벨도 선택되지
+        // 않은 채로 보인다. 학년으로 일단 추정해 두고 나중에 선생님이 조정한다.
+        // 이미 지정돼 있으면 건드리지 않는다 — 진급 때 다시 호출해도 유지된다
+        if (this.vocabLevel == null && grade != null) {
+            this.vocabLevel = switch (grade) {
+                case 1 -> VocabLevel.BEGINNER;
+                case 3 -> VocabLevel.ADVANCED;
+                default -> VocabLevel.INTERMEDIATE;
+            };
+        }
     }
 
     public void markLoggedIn() {

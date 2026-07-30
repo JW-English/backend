@@ -7,9 +7,9 @@ package com.jungwoon.domain.vocabulary;
  * 대신하면 학생이 자기 레벨을 기본 화면에서 볼 수 없다.
  */
 public enum VocabLevel {
-    BEGINNER("입문"),
-    INTERMEDIATE("중급"),
-    ADVANCED("고급");
+    BEGINNER("Beginner"),
+    INTERMEDIATE("Intermediate"),
+    ADVANCED("Advanced");
 
     private final String label;
 
