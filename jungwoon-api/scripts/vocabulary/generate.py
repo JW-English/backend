@@ -23,6 +23,7 @@ import json
 import os
 import re
 import sys
+import random
 import threading
 import time
 from concurrent.futures import ThreadPoolExecutor, as_completed
@@ -278,7 +279,7 @@ def main() -> None:
 
     def run_chunk(chunk: list[dict]) -> None:
         last_error = None
-        for attempt in range(4):
+        for attempt in range(8):
             try:
                 res = client.chat.completions.create(
                     model=args.model,
@@ -328,7 +329,14 @@ def main() -> None:
                 return
             except Exception as exc:  # noqa: BLE001 — 무엇이든 재시도한다
                 last_error = exc
-                time.sleep(2 ** attempt)
+                # 429 는 분당 토큰 한도라 기다리면 반드시 풀린다. 다만 동시 요청이
+                # 한꺼번에 깨어나면 또 같이 부딪히므로 흔들어서 재운다
+                delay = min(60, 2 ** attempt) + random.uniform(0, 3)
+                if "rate_limit" in str(exc):
+                    m = re.search(r"try again in ([\d.]+)s", str(exc))
+                    if m:
+                        delay = max(delay, float(m.group(1)) + random.uniform(1, 5))
+                time.sleep(delay)
 
         with lock:
             stats["failed_chunks"] += 1
