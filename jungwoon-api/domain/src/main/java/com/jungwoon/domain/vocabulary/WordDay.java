@@ -2,6 +2,8 @@ package com.jungwoon.domain.vocabulary;
 
 import com.jungwoon.domain.support.BaseEntity;
 import jakarta.persistence.Column;
+import jakarta.persistence.EnumType;
+import jakarta.persistence.Enumerated;
 import jakarta.persistence.Entity;
 import jakarta.persistence.Id;
 import jakarta.persistence.Table;
@@ -26,8 +28,9 @@ public class WordDay extends BaseEntity {
     @Column(name = "id", nullable = false, updatable = false)
     private UUID id;
 
-    @Column(name = "grade", nullable = false)
-    private int grade;
+    @Enumerated(EnumType.STRING)
+    @Column(name = "level", nullable = false)
+    private VocabLevel level;
 
     @Column(name = "day_no", nullable = false)
     private int dayNo;
@@ -40,8 +43,8 @@ public class WordDay extends BaseEntity {
     private String title;
 
     @Builder
-    private WordDay(int grade, int dayNo, LocalDate scheduledDate, String title) {
-        this.grade = grade;
+    private WordDay(VocabLevel level, int dayNo, LocalDate scheduledDate, String title) {
+        this.level = level;
         this.dayNo = dayNo;
         this.scheduledDate = scheduledDate;
         this.title = title;

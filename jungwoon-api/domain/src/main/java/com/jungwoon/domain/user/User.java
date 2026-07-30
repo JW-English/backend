@@ -1,5 +1,7 @@
 package com.jungwoon.domain.user;
 
+import com.jungwoon.domain.vocabulary.VocabLevel;
+
 import com.jungwoon.domain.support.BaseEntity;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
@@ -53,6 +55,11 @@ public class User extends BaseEntity {
     @Column(name = "grade")
     private Integer grade;
 
+    /** 어휘 레벨. 학교 학년과 별개다 — 고3이 BEGINNER 인 경우가 있다 */
+    @Enumerated(EnumType.STRING)
+    @Column(name = "vocab_level")
+    private VocabLevel vocabLevel;
+
     @Column(name = "school")
     private String school;
 
@@ -100,6 +107,11 @@ public class User extends BaseEntity {
 
     public void markLoggedIn() {
         this.lastLoginAt = Instant.now();
+    }
+
+    /** 선생님이 학생 레벨을 조정한다. 학생 본인도 설정에서 바꿀 수 있다 */
+    public void changeVocabLevel(VocabLevel level) {
+        this.vocabLevel = level;
     }
 
     public void withdraw() {
