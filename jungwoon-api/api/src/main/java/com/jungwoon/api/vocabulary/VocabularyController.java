@@ -3,6 +3,7 @@ package com.jungwoon.api.vocabulary;
 import com.jungwoon.api.auth.UserPrincipal;
 import com.jungwoon.api.vocabulary.dto.VocabularyDtos.DayDetail;
 import com.jungwoon.api.vocabulary.dto.VocabularyDtos.DayListItem;
+import com.jungwoon.domain.vocabulary.VocabLevel;
 import io.swagger.v3.oas.annotations.Operation;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -25,10 +26,11 @@ public class VocabularyController {
     }
 
     @GetMapping("/days")
-    @Operation(summary = "DAY 목록", description = "grade 를 비우면 내 학년. 예약일이 지난 DAY 만 보인다")
+    @Operation(summary = "DAY 목록",
+            description = "level 을 비우면 내 어휘 레벨. 예약일이 지난 DAY 만 보인다")
     public List<DayListItem> days(@AuthenticationPrincipal UserPrincipal me,
-                                  @RequestParam(required = false) Integer grade) {
-        return vocabularyService.listDays(me, grade);
+                                  @RequestParam(required = false) VocabLevel level) {
+        return vocabularyService.listDays(me, level);
     }
 
     @GetMapping("/days/{dayId}")
