@@ -2,7 +2,8 @@
 """중간 CSV → 적재용 SQL.
 
 사용:
-    python3 build_seed.py --input data/intermediate.csv --level INTERMEDIATE > seed.sql
+    python3 build_seed.py --input data/intermediate.csv --level INTERMEDIATE \
+        --generated data/generated.jsonl > seed.sql
     psql ... -f seed.sql
 
 정규화도 여기서 한다. 별도 단계로 나누면 파일만 늘고 얻는 게 없다.
@@ -19,7 +20,6 @@ import csv
 import json
 import re
 import sys
-from collections import defaultdict
 from pathlib import Path
 
 # 뜻 구분자. ';' 가 뜻 단위, ',' 는 같은 뜻 안의 유의어다.
@@ -38,15 +38,19 @@ def normalize_headword(word: str) -> str:
     return re.sub(r"\s+", " ", word).strip()
 
 
-def to_meanings_json(meanings: str) -> str:
-    """'진보, 발전; 전진' → jsonb 배열.
+def to_meanings_json(meanings) -> str:
+    """뜻 → jsonb 배열.
 
-    품사 표기가 있으면 살린다. 현재 데이터에는 없어서 ko 만 채운다.
+    generate.py 결과는 이미 [{"pos": "v.", "ko": "..."}] 형태다.
+    CSV 에서 온 문자열이면 ';' 로 잘라 ko 만 채운다.
     """
-    parts = [p.strip() for p in MEANING_SPLIT.split(meanings) if p.strip()]
+    if isinstance(meanings, list):
+        parts = [m for m in meanings if (m.get("ko") or "").strip()]
+    else:
+        parts = [{"ko": p.strip()} for p in MEANING_SPLIT.split(meanings) if p.strip()]
     if not parts:
         return "NULL"
-    return quote(json.dumps([{"ko": p} for p in parts], ensure_ascii=False)) + "::jsonb"
+    return quote(json.dumps(parts, ensure_ascii=False)) + "::jsonb"
 
 
 def main() -> None:
@@ -55,7 +59,16 @@ def main() -> None:
     parser.add_argument("--level", required=True,
                         choices=["BEGINNER", "INTERMEDIATE", "ADVANCED"])
     parser.add_argument("--day-prefix", default="", help="DAY 제목 접두어 (예: '베이직')")
+    parser.add_argument("--generated", help="generate.py 결과 JSONL. CSV 의 뜻보다 우선한다")
     args = parser.parse_args()
+
+    # 생성 결과가 있으면 그쪽을 쓴다. 예문은 여기에만 있다
+    generated: dict[str, dict] = {}
+    if args.generated:
+        for line in Path(args.generated).read_text(encoding="utf-8").splitlines():
+            if line.strip():
+                row = json.loads(line)
+                generated[row["headword"]] = row
 
     rows = list(csv.DictReader(Path(args.input).open(encoding="utf-8")))
     if not rows:
@@ -75,6 +88,18 @@ def main() -> None:
         day_no = int(r["day_no"])
         placements.append((word, day_no, int(r["sort_order"] or 0)))
 
+        gen = generated.get(word)
+        if gen:
+            # 생성 결과는 표제어당 하나뿐이라 아래 충돌 병합을 탈 일이 없다
+            by_word[word] = {
+                "meaning_ko": gen["meaning_ko"].strip(),
+                "meanings": gen["meanings"],
+                "example_en": (gen.get("example_en") or "").strip(),
+                "example_ko": (gen.get("example_ko") or "").strip(),
+                "type": (r.get("word_type") or "").strip(),
+            }
+            continue
+
         meaning_ko = (r.get("meaning_ko") or "").strip()
         meanings = (r.get("meanings") or "").strip() or meaning_ko
 
@@ -83,12 +108,17 @@ def main() -> None:
             by_word[word] = {
                 "meaning_ko": meaning_ko,
                 "meanings": meanings,
+                "example_en": "",
+                "example_ko": "",
                 "type": (r.get("word_type") or "").strip(),
             }
             continue
 
         # 같은 단어가 DAY 마다 뜻이 다르게 실린 경우가 있다 (복습 단원에서 축약).
         # 짧은 쪽을 쓰면 뜻이 사라지므로 긴 쪽을 남긴다
+        if isinstance(prev["meanings"], list):
+            continue  # 이미 생성 결과로 채운 단어
+
         if meaning_ko and meaning_ko != prev["meaning_ko"]:
             conflicts.append(f"{word}: {prev['meaning_ko']!r} vs {meaning_ko!r}")
             if len(meaning_ko) > len(prev["meaning_ko"]):
@@ -97,6 +127,7 @@ def main() -> None:
             prev["meanings"] = meanings
 
     missing = [w for w, v in by_word.items() if not v["meaning_ko"]]
+    no_example = [w for w, v in by_word.items() if not v["example_en"]]
 
     # ── 2) DAY 목록
     day_titles: dict[int, str] = {}
@@ -127,10 +158,12 @@ def main() -> None:
         v = by_word[word]
         tags = "ARRAY[" + quote(v["type"]) + "]" if v["type"] else "NULL"
         print(
-            f"INSERT INTO words (headword, meaning_ko, meanings, tags) VALUES ("
-            f"{quote(word)}, {quote(v['meaning_ko'])}, {to_meanings_json(v['meanings'])}, {tags}) "
-            f"ON CONFLICT (headword, meaning_ko) DO UPDATE "
-            f"SET meanings = EXCLUDED.meanings, tags = EXCLUDED.tags;"
+            f"INSERT INTO words (headword, meaning_ko, meanings, example_en, example_ko, tags) "
+            f"VALUES ({quote(word)}, {quote(v['meaning_ko'])}, {to_meanings_json(v['meanings'])}, "
+            f"{quote(v['example_en'])}, {quote(v['example_ko'])}, {tags}) "
+            f"ON CONFLICT (headword, meaning_ko) DO UPDATE SET "
+            f"meanings = EXCLUDED.meanings, example_en = EXCLUDED.example_en, "
+            f"example_ko = EXCLUDED.example_ko, tags = EXCLUDED.tags;"
         )
 
     print("\n-- DAY 편성")
@@ -158,6 +191,12 @@ def main() -> None:
             print(f"     {w}", file=sys.stderr)
         if len(missing) > 10:
             print(f"     … 외 {len(missing) - 10}개", file=sys.stderr)
+    if no_example:
+        print(f"⚠️  예문이 없는 단어 {len(no_example)}개 (generate.py 를 더 돌리세요)", file=sys.stderr)
+        for w in no_example[:10]:
+            print(f"     {w}", file=sys.stderr)
+        if len(no_example) > 10:
+            print(f"     … 외 {len(no_example) - 10}개", file=sys.stderr)
     if conflicts:
         print(f"⚠️  같은 단어에 다른 뜻 {len(conflicts)}건 (긴 쪽을 채택했습니다)", file=sys.stderr)
         for c in conflicts[:5]:

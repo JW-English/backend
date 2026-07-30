@@ -4,10 +4,13 @@
 사용:
     python3 extract_pdf.py --input beginner.pdf --set beginner > data/beginner.csv
 
-워크시트는 빈칸 채우기용이라 한글 뜻이 없다. meaning_ko / meanings 를 비워 두고
-뒤 단계에서 채운 뒤 build_seed.py 로 넘긴다.
+한글 뜻이 없는 자료를 다룬다. meaning_ko / meanings 를 비워 두고
+뒤 단계(generate.py)에서 채운 뒤 build_seed.py 로 넘긴다.
 
-한 쪽이 한 Day 이고 "1. word    21. word" 처럼 2단 배치다.
+레이아웃 두 가지를 모두 읽는다:
+  · 의미쓰기 워크시트  "1. provide    21. environment"
+  · 표 형식            NO | Spelling | Meaning
+둘 다 한 쪽이 한 Day 이고 2단 배치라 읽는 순서가 1,21,2,22... 로 섞인다.
 숙어(run into, get along with)가 섞여 있어 공백을 단어 경계로 보면 잘린다.
 """
 
@@ -39,10 +42,44 @@ ENTRY_RE = re.compile(
 )
 
 
+def parse_worksheet(text: str) -> list[tuple[int, str]]:
+    """'1. provide    21. environment' 형식 (의미쓰기 워크시트)."""
+    entries: list[tuple[int, str]] = []
+    for line in text.split("\n"):
+        for m in ENTRY_RE.finditer(line):
+            entries.append((int(m.group(1)), m.group(2).strip()))
+    return entries
+
+
+def parse_table(text: str) -> list[tuple[int, str]]:
+    """NO | Spelling | Meaning 표 형식.
+
+    추출하면 헤더 뒤로 번호와 단어가 번갈아 나온다:
+        1, provide, 21, environment, 2, develop, 22, expense, ...
+    """
+    lines = [l.strip() for l in text.split("\n") if l.strip()]
+
+    header = [i for i, l in enumerate(lines[:12]) if l.lower() == "meaning"]
+    if not header:
+        return []
+
+    tokens = lines[max(header) + 1:]
+    entries: list[tuple[int, str]] = []
+    i = 0
+    while i < len(tokens) - 1:
+        if tokens[i].isdigit():
+            entries.append((int(tokens[i]), tokens[i + 1]))
+            i += 2
+        else:
+            i += 1
+    return entries
+
+
 def main() -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument("--input", required=True)
     parser.add_argument("--set", required=True, help="beginner | intermediate | advanced")
+    parser.add_argument("--expect", type=int, default=40, help="Day 당 단어 수 (경고 기준)")
     args = parser.parse_args()
 
     doc = fitz.open(args.input)
@@ -65,13 +102,10 @@ def main() -> None:
             continue
         day_no = int(m.group(1))
 
-        # (번호, 단어) 를 모아 번호순으로 정렬한다.
-        # 2단 배치라 읽는 순서가 1,21,2,22... 로 섞여 나온다
-        entries: list[tuple[int, str]] = []
-        for line in text.split("\n"):
-            for mm in ENTRY_RE.finditer(line):
-                entries.append((int(mm.group(1)), mm.group(2).strip()))
+        # 레이아웃이 두 가지다. 표 헤더가 보이면 표, 아니면 워크시트로 읽는다
+        entries = parse_table(text) or parse_worksheet(text)
 
+        # 2단 배치라 읽는 순서가 1,21,2,22... 로 섞여 나온다
         entries.sort(key=lambda e: e[0])
         seen = set()
         for no, word in entries:
@@ -81,8 +115,8 @@ def main() -> None:
             writer.writerow([args.set, day_no, "", no, word, "", "", ""])
             total += 1
 
-        if len(seen) < 40:
-            warnings.append(f"Day {day_no}: {len(seen)}개만 추출 (보통 40개)")
+        if len(seen) < args.expect:
+            warnings.append(f"Day {day_no}: {len(seen)}개만 추출 (기대 {args.expect}개)")
 
     print(f"✅ {total}단어 · {doc.page_count}쪽", file=sys.stderr)
     for w in warnings:
