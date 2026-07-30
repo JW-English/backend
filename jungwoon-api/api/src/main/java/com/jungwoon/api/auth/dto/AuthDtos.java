@@ -3,6 +3,7 @@ package com.jungwoon.api.auth.dto;
 import com.jungwoon.api.auth.TokenPair;
 import com.jungwoon.domain.user.Role;
 import com.jungwoon.domain.user.User;
+import com.jungwoon.domain.vocabulary.VocabLevel;
 import jakarta.validation.constraints.Email;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Size;
@@ -65,11 +66,13 @@ public final class AuthDtos {
             Role role,
             Integer grade,
             String school,
+            /** 어휘 레벨. 학교 학년과 별개라 아직 지정되지 않았으면 null 이다 */
+            VocabLevel vocabLevel,
             boolean onboarded
     ) {
         public static MeResponse of(User user) {
             return new MeResponse(user.getId(), user.getEmail(), user.getName(), user.getRole(),
-                    user.getGrade(), user.getSchool(), user.isOnboarded());
+                    user.getGrade(), user.getSchool(), user.getVocabLevel(), user.isOnboarded());
         }
     }
 }

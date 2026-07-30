@@ -39,7 +39,6 @@ import java.util.UUID;
 @Service
 public class QuizService {
 
-    private static final int DEFAULT_QUESTION_COUNT = 20;
     private static final int MIN_POOL_SIZE = 4;
 
     private final WordDayRepository dayRepository;
@@ -81,9 +80,11 @@ public class QuizService {
                     "이 DAY 에는 시험을 만들 단어가 부족합니다 (최소 %d개).".formatted(MIN_POOL_SIZE));
         }
 
+        // 기본은 DAY 의 단어 전부다. 일부만 내면 안 나온 단어를 건너뛴 채
+        // 합격이 되어서, DAY 를 다 외웠는지 판정하는 시험이 되지 않는다
         int questionCount = request.questionCount() != null
-                ? request.questionCount()
-                : Math.min(DEFAULT_QUESTION_COUNT, pool.size());
+                ? Math.min(request.questionCount(), pool.size())
+                : pool.size();
 
         QuestionType questionType = request.questionType() != null
                 ? request.questionType()
@@ -189,6 +190,7 @@ public class QuizService {
                         a.getTotalCount(),
                         a.getCorrectCount(),
                         a.getScore() == null ? 0 : a.getScore().doubleValue(),
+                        a.isPassed(),
                         a.getFinishedAt()))
                 .toList();
     }

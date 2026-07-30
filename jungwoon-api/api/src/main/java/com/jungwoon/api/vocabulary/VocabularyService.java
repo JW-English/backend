@@ -11,6 +11,7 @@ import com.jungwoon.domain.user.UserRepository;
 import com.jungwoon.domain.vocabulary.DayWordCount;
 import com.jungwoon.domain.vocabulary.QuizAttempt;
 import com.jungwoon.domain.vocabulary.QuizAttemptRepository;
+import com.jungwoon.domain.vocabulary.VocabLevel;
 import com.jungwoon.domain.vocabulary.WordDay;
 import com.jungwoon.domain.vocabulary.WordDayItem;
 import com.jungwoon.domain.vocabulary.WordDayItemRepository;
@@ -45,14 +46,14 @@ public class VocabularyService {
     }
 
     /**
-     * 학년별 DAY 목록.
-     * 다른 학년도 열람할 수 있다 (기획 5.4) — 열람은 자유, 통계만 본인 학년 기준이다.
+     * 레벨별 DAY 목록.
+     * 다른 레벨도 열람할 수 있다 — 위아래를 둘러보는 건 막지 않는다.
      */
     @Transactional(readOnly = true)
-    public List<DayListItem> listDays(UserPrincipal me, Integer grade) {
-        int targetGrade = grade != null ? grade : myGrade(me);
+    public List<DayListItem> listDays(UserPrincipal me, VocabLevel level) {
+        VocabLevel target = level != null ? level : myLevel(me);
 
-        List<WordDay> days = dayRepository.findOpenDays(targetGrade, LocalDate.now());
+        List<WordDay> days = dayRepository.findOpenDays(target, LocalDate.now());
         if (days.isEmpty()) {
             return List.of();
         }
@@ -105,16 +106,28 @@ public class VocabularyService {
     }
 
     /**
-     * 학년은 DB 에서 읽는다. 토큰 클레임은 온보딩 이전 값(null)일 수 있다.
+     * 어휘 레벨은 DB 에서 읽는다. 토큰 클레임은 온보딩 이전 값(null)일 수 있다.
+     *
+     * 레벨이 없으면 학교 학년으로 추정한다 — 온보딩만 마친 학생도 바로 쓸 수 있어야 한다.
+     * 선생님이나 학생이 설정에서 조정하면 그 값이 우선한다.
      */
-    private int myGrade(UserPrincipal me) {
+    private VocabLevel myLevel(UserPrincipal me) {
         User user = userRepository.findById(me.id())
                 .orElseThrow(() -> new BusinessException(ErrorCode.INVALID_TOKEN));
 
-        if (user.getGrade() == null) {
+        if (user.getVocabLevel() != null) {
+            return user.getVocabLevel();
+        }
+
+        Integer grade = user.getGrade();
+        if (grade == null) {
             throw new BusinessException(ErrorCode.INVALID_REQUEST,
                     "학년 정보가 없습니다. 프로필에서 학년을 먼저 설정해 주세요.");
         }
-        return user.getGrade();
+        return switch (grade) {
+            case 1 -> VocabLevel.BEGINNER;
+            case 3 -> VocabLevel.ADVANCED;
+            default -> VocabLevel.INTERMEDIATE;
+        };
     }
 }
