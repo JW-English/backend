@@ -16,3 +16,10 @@ build/
 *.iml
 .vscode/
 .DS_Store
+
+# 단어 원본·생성 데이터. 레포가 public 이라 올리지 않는다.
+# intermediate.csv 는 교재 뜻이 원문 그대로 들어 있고,
+# generated.jsonl 은 우리가 만든 단어장 콘텐츠다.
+jungwoon-api/scripts/vocabulary/data/
+jungwoon-api/scripts/vocabulary/out/
+__pycache__/
