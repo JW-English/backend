@@ -172,43 +172,43 @@ def build_prompt(chunk: list[dict]) -> str:
     )
 
 
-def check(entry: dict, expected: str) -> str | None:
-    """돌려준 항목이 쓸 만한지 본다. 문제가 있으면 사유를 돌려준다."""
-    if entry.get("headword") != expected:
-        return f"표제어 불일치: {entry.get('headword')!r}"
-
+def check(entry: dict, expected: str) -> tuple[str | None, str | None]:
+    """(버릴 사유, 눈으로 볼 사유). 버릴 사유가 있으면 저장하지 않는다."""
     meaning_ko = (entry.get("meaning_ko") or "").strip()
     if not meaning_ko:
-        return "meaning_ko 비어 있음"
+        return "meaning_ko 비어 있음", None
     if not HANGUL.search(meaning_ko):
-        return f"meaning_ko 에 한글이 없음: {meaning_ko!r}"
+        return f"meaning_ko 에 한글이 없음: {meaning_ko!r}", None
     if len(meaning_ko) > 30:
-        return f"meaning_ko 가 너무 김({len(meaning_ko)}자)"
+        return f"meaning_ko 가 너무 김({len(meaning_ko)}자)", None
 
     if not entry.get("meanings"):
-        return "meanings 비어 있음"
+        return "meanings 비어 있음", None
     for m in entry["meanings"]:
         if not (m.get("ko") or "").strip():
-            return "meanings 안에 빈 뜻이 있음"
+            return "meanings 안에 빈 뜻이 있음", None
 
     example_en = (entry.get("example_en") or "").strip()
     example_ko = (entry.get("example_ko") or "").strip()
     if not example_en or not example_ko:
-        return "예문 비어 있음"
+        return "예문 비어 있음", None
     if not HANGUL.search(example_ko):
-        return "example_ko 에 한글이 없음"
+        return "example_ko 에 한글이 없음", None
     if HANGUL.search(example_en):
-        return "example_en 에 한글이 섞임"
+        return "example_en 에 한글이 섞임", None
 
-    # 표제어가 예문에 나오는지. 굴절(-ed, -ing, -s)을 감안해 어간만 본다.
-    # 숙어는 첫 단어만 확인한다 — 사이에 목적어가 끼어들어 통째로는 안 맞는다
-    head = WORDCHARS.findall(expected)
-    if head:
-        stem = head[0].lower()
-        stem = stem[: max(4, len(stem) - 2)]
-        if stem not in example_en.lower():
-            return f"예문에 표제어가 없음: {example_en!r}"
-    return None
+    # 표제어가 예문에 나오는지 본다. 형태소 분석기가 없어 어간 일치로 때우는데
+    # kept/ran/lying 같은 불규칙 활용을 놓친다. 버리면 그 단어가 영영 통과하지
+    # 못하고 재시도만 돌므로, 저장은 하고 사람이 볼 목록에만 남긴다.
+    #
+    # 숙어는 토큰 아무거나 하나만 걸리면 넘어간다. "keep A from -ing" 는
+    # "kept us from going" 처럼 첫 단어가 변형되고 사이에 목적어가 낀다
+    lowered = example_en.lower()
+    tokens = [t.lower() for t in WORDCHARS.findall(expected)
+              if len(t) >= 3 and t.lower() != "ing"]
+    if tokens and not any(t[: max(4, len(t) - 2)] in lowered for t in tokens):
+        return None, f"예문에 표제어가 안 보임 — {example_en!r}"
+    return None, None
 
 
 def main() -> None:
@@ -219,6 +219,10 @@ def main() -> None:
     parser.add_argument("--chunk", type=int, default=20, help="한 요청에 담을 단어 수")
     parser.add_argument("--workers", type=int, default=6)
     parser.add_argument("--limit", type=int, help="앞에서 N개만 (시험용)")
+    parser.add_argument("--sample", type=int,
+                        help="전체에서 고르게 N개만 (품질 점검용)")
+    parser.add_argument("--words", nargs="+",
+                        help="지정한 표제어만 (까다로운 것 확인용)")
     parser.add_argument("--only-missing", action="store_true",
                         help="참고 뜻이 없는 단어만 (PDF 세트)")
     parser.add_argument("--regenerate", action="store_true",
@@ -235,6 +239,14 @@ def main() -> None:
     cache = {} if args.regenerate else load_cache(out_path)
 
     todo = [w for w in words if w["headword"] not in cache]
+    if args.words:
+        wanted = {normalize_headword(w) for w in args.words}
+        todo = [w for w in todo if w["headword"] in wanted]
+    if args.sample:
+        # 알파벳순이라 앞에서 자르면 a 로 시작하는 단어만 나온다.
+        # 전 구간에서 고르게 뽑아야 세트·난이도가 섞인다
+        step = max(1, len(todo) // args.sample)
+        todo = todo[::step][: args.sample]
     if args.limit:
         todo = todo[: args.limit]
 
@@ -262,6 +274,7 @@ def main() -> None:
     out_file = out_path.open("a", encoding="utf-8")
     stats = {"ok": 0, "rejected": 0, "failed_chunks": 0, "in": 0, "out": 0}
     rejects: list[str] = []
+    flagged: list[str] = []
 
     def run_chunk(chunk: list[dict]) -> None:
         last_error = None
@@ -277,19 +290,27 @@ def main() -> None:
                     temperature=0.4,
                 )
                 entries = json.loads(res.choices[0].message.content)["entries"]
-                by_head = {e.get("headword"): e for e in entries}
+                # 표기를 다듬어 돌려주는 경우가 있어(괄호 제거 등) 정규화해서 맞춘다.
+                # 그래도 안 맞고 개수가 같으면 순서대로 짝짓는다
+                by_head = {normalize_headword(e.get("headword") or ""): e for e in entries}
+                aligned = len(entries) == len(chunk)
 
                 good, bad = [], []
-                for w in chunk:
+                for i, w in enumerate(chunk):
                     entry = by_head.get(w["headword"])
+                    if entry is None and aligned:
+                        entry = entries[i]
                     if entry is None:
                         bad.append(f'{w["headword"]}: 응답에 없음')
                         continue
-                    reason = check(entry, w["headword"])
-                    if reason:
-                        bad.append(f'{w["headword"]}: {reason}')
+                    fatal, warn = check(entry, w["headword"])
+                    if fatal:
+                        bad.append(f'{w["headword"]}: {fatal}')
                         continue
+                    entry["headword"] = w["headword"]  # 캐시 키를 우리 표기로 고정
                     good.append(entry)
+                    if warn:
+                        flagged.append(f'{w["headword"]}: {warn}')
 
                 with lock:
                     for entry in good:
@@ -332,6 +353,13 @@ def main() -> None:
             print(f"     {r}", file=sys.stderr)
         if len(rejects) > 20:
             print(f"     … 외 {len(rejects) - 20}건", file=sys.stderr)
+
+    if flagged:
+        print(f"\n눈으로 볼 것 {len(flagged)}건 (저장은 했습니다):", file=sys.stderr)
+        for f in flagged[:20]:
+            print(f"     {f}", file=sys.stderr)
+        if len(flagged) > 20:
+            print(f"     … 외 {len(flagged) - 20}건", file=sys.stderr)
 
     remaining = len(todo) - stats["ok"]
     if remaining > 0:
