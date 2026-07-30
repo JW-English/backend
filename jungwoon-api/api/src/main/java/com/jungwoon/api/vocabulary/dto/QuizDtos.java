@@ -19,7 +19,8 @@ public final class QuizDtos {
 
     public record StartRequest(
             @NotNull UUID dayId,
-            @Min(1) @Max(50) Integer questionCount,
+            /** 비우면 DAY 의 단어 전부. 한 DAY 가 최대 61단어다 */
+            @Min(1) @Max(100) Integer questionCount,
             QuestionType questionType
     ) {
     }
@@ -95,6 +96,9 @@ public final class QuizDtos {
             int totalCount,
             int correctCount,
             BigDecimal score,
+            /** 정답률 90% 이상 */
+            boolean passed,
+            int passPercent,
             Instant startedAt,
             Instant finishedAt,
             List<ReviewItem> reviews
@@ -105,6 +109,8 @@ public final class QuizDtos {
                     attempt.getTotalCount(),
                     attempt.getCorrectCount(),
                     attempt.getScore(),
+                    attempt.isPassed(),
+                    QuizAttempt.PASS_PERCENT,
                     attempt.getStartedAt(),
                     attempt.getFinishedAt(),
                     attempt.getAnswers().stream().map(ReviewItem::of).toList());
@@ -132,6 +138,7 @@ public final class QuizDtos {
             int correctCount,
             /** 0~100 */
             double score,
+            boolean passed,
             Instant finishedAt
     ) {
     }
