@@ -56,6 +56,9 @@ public class QnaService {
     private static final int DEFAULT_SIZE = 20;
     private static final int MAX_SIZE = 50;
     private static final long DOWNLOAD_EXPIRES_IN = 3600L;
+    private static final Instant FIRST_DESC_CURSOR_CREATED_AT = Instant.parse("9999-12-31T23:59:59Z");
+    private static final Instant FIRST_ASC_CURSOR_CREATED_AT = Instant.EPOCH;
+    private static final UUID FIRST_CURSOR_ID = new UUID(0L, 0L);
     private static final Set<String> ALLOWED_MIME_TYPES =
             Set.of("image/jpeg", "image/png", "image/gif", "application/pdf");
 
@@ -96,13 +99,14 @@ public class QnaService {
     public CursorPage<QuestionListItem> list(UserPrincipal me, String scope, QuestionCategory category,
                                              QuestionStatus status, String cursor, Integer size) {
         CursorParts cursorParts = decodeCursor(cursor);
+        CursorParts effectiveCursor = cursorParts.orFirstDescending();
         List<Question> questions = questionRepository.findVisiblePage(
                 me.id(),
                 "mine".equals(scope) ? "mine" : "public",
                 category,
                 status,
-                cursorParts.createdAt,
-                cursorParts.id,
+                effectiveCursor.createdAt,
+                effectiveCursor.id,
                 PageRequest.of(0, normalizeSize(size) + 1)
         );
         boolean hasNext = questions.size() > normalizeSize(size);
@@ -226,9 +230,10 @@ public class QnaService {
     public CursorPage<AdminQuestionListItem> adminList(QuestionStatus status, QuestionCategory category,
                                                        String cursor, Integer size) {
         CursorParts cursorParts = decodeCursor(cursor);
+        CursorParts effectiveCursor = cursorParts.orFirstAscending();
         int normalizedSize = normalizeSize(size);
-        List<Question> questions = questionRepository.findAdminQueue(status, category, cursorParts.createdAt,
-                cursorParts.id, PageRequest.of(0, normalizedSize + 1));
+        List<Question> questions = questionRepository.findAdminQueue(status, category, effectiveCursor.createdAt,
+                effectiveCursor.id, PageRequest.of(0, normalizedSize + 1));
         boolean hasNext = questions.size() > normalizedSize;
         List<Question> page = hasNext ? questions.subList(0, normalizedSize) : questions;
         List<AdminQuestionListItem> items = page.stream()
@@ -374,5 +379,12 @@ public class QnaService {
     }
 
     private record CursorParts(Instant createdAt, UUID id) {
+        CursorParts orFirstDescending() {
+            return createdAt == null ? new CursorParts(FIRST_DESC_CURSOR_CREATED_AT, FIRST_CURSOR_ID) : this;
+        }
+
+        CursorParts orFirstAscending() {
+            return createdAt == null ? new CursorParts(FIRST_ASC_CURSOR_CREATED_AT, FIRST_CURSOR_ID) : this;
+        }
     }
 }
