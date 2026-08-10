@@ -24,6 +24,11 @@ RUN groupadd --system app && useradd --system --gid app app
 COPY --from=build /workspace/api/build/libs/app.jar app.jar
 USER app
 
+# 배포된 커밋을 /actuator/info 와 로그에서 확인할 수 있게 심는다.
+# 어떤 버전이 떠 있는지 모르면 장애 때 원인을 좁힐 수 없다
+ARG APP_VERSION=dev
+ENV APP_VERSION=${APP_VERSION}
+
 ENV JAVA_OPTS="-XX:MaxRAMPercentage=75 -Duser.timezone=Asia/Seoul"
 ENV SPRING_PROFILES_ACTIVE=prod
 EXPOSE 8080

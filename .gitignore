@@ -23,3 +23,6 @@ build/
 jungwoon-api/scripts/vocabulary/data/
 jungwoon-api/scripts/vocabulary/out/
 __pycache__/
+
+# 운영 시크릿
+jungwoon-api/deploy/.env
