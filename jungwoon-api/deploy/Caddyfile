@@ -3,7 +3,7 @@
 
 {
 	# 발급 실패 알림을 받을 주소. 없으면 Let's Encrypt 가 만료 경고를 보낼 곳이 없다
-	email {$ACME_EMAIL:admin@example.com}
+	email {$ACME_EMAIL:admin@purutpurut.com}
 }
 
 api.{$DOMAIN} {
