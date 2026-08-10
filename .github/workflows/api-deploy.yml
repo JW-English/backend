@@ -1,0 +1,86 @@
+name: API Deploy
+
+# main 머지 시 배포한다. CI(api-ci.yml)가 테스트를 담당하므로
+# 여기서는 이미지 빌드와 교체만 한다.
+on:
+  workflow_run:
+    workflows: ["API CI"]
+    types: [completed]
+    branches: [main]
+  workflow_dispatch:          # 롤백·재배포용 수동 실행
+
+concurrency:
+  group: api-deploy           # 배포가 겹치면 컨테이너가 꼬인다. 취소하지 않고 줄 세운다
+  cancel-in-progress: false
+
+env:
+  IMAGE: ghcr.io/${{ github.repository_owner }}/jungwoon-api
+
+jobs:
+  deploy:
+    # CI 가 실패했으면 배포하지 않는다. 수동 실행은 그대로 통과시킨다
+    if: github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write         # GHCR 푸시
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: docker/setup-buildx-action@v3
+
+      - uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      # VM 에서 빌드하지 않는다. 2GB 램으로 Gradle 을 돌리면 OOM 이 난다
+      - name: Build & push
+        uses: docker/build-push-action@v6
+        with:
+          context: jungwoon-api
+          push: true
+          tags: |
+            ${{ env.IMAGE }}:${{ github.sha }}
+            ${{ env.IMAGE }}:latest
+          build-args: APP_VERSION=${{ github.sha }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: Deploy over SSH
+        uses: appleboy/ssh-action@v1
+        with:
+          host: ${{ secrets.DEPLOY_HOST }}
+          username: ${{ secrets.DEPLOY_USER }}
+          key: ${{ secrets.DEPLOY_SSH_KEY }}
+          script_stop: true
+          script: |
+            set -euo pipefail
+            cd /opt/jungwoon/deploy
+
+            # 실패하면 되돌아갈 태그를 먼저 적어둔다
+            PREV=$(grep '^API_TAG=' .env | cut -d= -f2)
+            echo "현재 ${PREV} → 새 ${{ github.sha }}"
+
+            sed -i "s|^API_TAG=.*|API_TAG=${{ github.sha }}|" .env
+            docker compose -f docker-compose.prod.yml --env-file .env pull api
+            docker compose -f docker-compose.prod.yml --env-file .env up -d api
+
+            # graceful shutdown 이 켜져 있어 교체 중 요청은 끊기지 않는다.
+            # Flyway 마이그레이션이 있으면 기동이 길어질 수 있어 90초까지 본다
+            for i in $(seq 1 45); do
+              if curl -fsS http://localhost:8080/actuator/health/readiness >/dev/null 2>&1; then
+                echo "✅ 배포 완료 ${{ github.sha }}"
+                docker image prune -f --filter "until=168h"
+                exit 0
+              fi
+              sleep 2
+            done
+
+            echo "❌ 헬스체크 실패 — ${PREV} 로 되돌립니다"
+            docker compose -f docker-compose.prod.yml --env-file .env logs --tail=80 api
+            sed -i "s|^API_TAG=.*|API_TAG=${PREV}|" .env
+            docker compose -f docker-compose.prod.yml --env-file .env up -d api
+            exit 1
