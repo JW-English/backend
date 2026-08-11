@@ -81,8 +81,10 @@ jobs:
 
             # graceful shutdown 이 켜져 있어 교체 중 요청은 끊기지 않는다.
             # Flyway 마이그레이션이 있으면 기동이 길어질 수 있어 90초까지 본다
+            # api 는 포트를 호스트에 열지 않는다 (Caddy 만 노출). VM 에서
+            # curl localhost:8080 은 항상 실패하므로 컨테이너 안에서 확인한다
             for i in $(seq 1 45); do
-              if curl -fsS http://localhost:8080/actuator/health/readiness >/dev/null 2>&1; then
+              if docker exec jungwoon-api curl -fsS http://127.0.0.1:8080/actuator/health/readiness >/dev/null 2>&1; then
                 echo "✅ 배포 완료 ${{ github.sha }}"
                 docker image prune -f --filter "until=168h"
                 exit 0
