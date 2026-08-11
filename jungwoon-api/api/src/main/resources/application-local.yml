@@ -18,14 +18,14 @@ spring:
 
 logging:
   level:
-    com.jungwoon: DEBUG
+    com.purut: DEBUG
     p6spy: DEBUG
 
 springdoc:
   swagger-ui:
     enabled: true
 
-jungwoon:
+purut:
   cors:
     # 로컬 전용 패턴. 운영(application-prod)에는 정확한 도메인만 넣는다.
     allowed-origins:
