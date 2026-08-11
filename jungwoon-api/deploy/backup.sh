@@ -16,6 +16,9 @@ set -a; source .env; set +a
 
 : "${DB_USERNAME:?}" "${STORAGE_ENDPOINT:?}" "${BACKUP_BUCKET:?}"
 KEEP_DAYS="${BACKUP_KEEP_DAYS:-30}"
+# 미디어 버킷을 같이 쓰는 경우 프리픽스로 분리한다.
+# 전용 버킷을 만들면 BACKUP_PREFIX 를 비우면 된다
+PREFIX="${BACKUP_PREFIX:-backups}"
 
 # aws cli 를 VM 에 설치하지 않는다. 컨테이너로 그때만 띄운다
 s3() {
@@ -29,7 +32,7 @@ s3() {
 
 backup() {
     local stamp; stamp=$(date +%F-%H%M)
-    local key="db/jungwoon-${stamp}.dump.gz"
+    local key="${PREFIX:+$PREFIX/}db/jungwoon-${stamp}.dump.gz"
 
     echo "[$(date '+%F %T')] 백업 시작 → ${key}"
 
@@ -55,10 +58,10 @@ backup() {
 # 보관 기간이 코드에 남아서 나중에 왜 30일인지 찾을 수 있다
 prune() {
     local cutoff; cutoff=$(date -d "${KEEP_DAYS} days ago" +%F 2>/dev/null || date -v-"${KEEP_DAYS}"d +%F)
-    s3 s3 ls "s3://${BACKUP_BUCKET}/db/" | while read -r date_part _ _ name; do
+    s3 s3 ls "s3://${BACKUP_BUCKET}/${PREFIX:+$PREFIX/}db/" | while read -r date_part _ _ name; do
         if [[ "$date_part" < "$cutoff" ]]; then
             echo "  정리: $name"
-            s3 s3 rm "s3://${BACKUP_BUCKET}/db/${name}"
+            s3 s3 rm "s3://${BACKUP_BUCKET}/${PREFIX:+$PREFIX/}db/${name}"
         fi
     done
 }
@@ -66,13 +69,13 @@ prune() {
 restore() {
     local day="${1:?복구할 날짜를 주세요 (예: 2026-08-11)}"
     local key
-    key=$(s3 s3 ls "s3://${BACKUP_BUCKET}/db/" | grep "jungwoon-${day}" | tail -1 | awk '{print $4}')
+    key=$(s3 s3 ls "s3://${BACKUP_BUCKET}/${PREFIX:+$PREFIX/}db/" | grep "jungwoon-${day}" | tail -1 | awk '{print $4}')
     [ -z "$key" ] && { echo "❌ ${day} 백업을 찾지 못했습니다"; exit 1; }
 
     echo "⚠️  현재 DB 를 ${key} 로 덮어씁니다. 5초 안에 Ctrl-C 로 중단할 수 있습니다."
     sleep 5
 
-    s3 s3 cp "s3://${BACKUP_BUCKET}/db/${key}" - \
+    s3 s3 cp "s3://${BACKUP_BUCKET}/${PREFIX:+$PREFIX/}db/${key}" - \
         | gunzip \
         | docker exec -i jungwoon-postgres \
             pg_restore -U "$DB_USERNAME" -d jungwoon --clean --if-exists --no-owner
