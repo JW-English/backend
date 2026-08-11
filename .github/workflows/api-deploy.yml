@@ -14,7 +14,10 @@ concurrency:
   cancel-in-progress: false
 
 env:
-  IMAGE: ghcr.io/${{ github.repository_owner }}/jungwoon-api
+  # GHCR 은 소문자만 받는다. 조직명이 JW-English 라 github.repository_owner 를
+  # 그대로 쓰면 "repository name must be lowercase" 로 빌드가 깨진다.
+  # 서버 compose 도 같은 문자열을 참조하므로 한 곳에 고정한다
+  IMAGE: ghcr.io/jw-english/jungwoon-api
 
 jobs:
   deploy:
