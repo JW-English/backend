@@ -22,8 +22,7 @@ public interface QuestionRepository extends JpaRepository<Question, UUID> {
               and (:scope = 'mine' or q.publicVisible = true or q.author.id = :userId)
               and (:category is null or q.category = :category)
               and (:status is null or q.status = :status)
-              and (:cursorCreatedAt is null
-                   or q.createdAt < :cursorCreatedAt
+              and (q.createdAt < :cursorCreatedAt
                    or (q.createdAt = :cursorCreatedAt and q.id < :cursorId))
             order by q.createdAt desc, q.id desc
             """)
@@ -59,8 +58,7 @@ public interface QuestionRepository extends JpaRepository<Question, UUID> {
               and (:status is null or q.status = :status)
               and (:status is not null or q.status in (com.jungwoon.domain.qna.QuestionStatus.PENDING, com.jungwoon.domain.qna.QuestionStatus.REOPENED))
               and (:category is null or q.category = :category)
-              and (:cursorCreatedAt is null
-                   or q.createdAt > :cursorCreatedAt
+              and (q.createdAt > :cursorCreatedAt
                    or (q.createdAt = :cursorCreatedAt and q.id > :cursorId))
             order by q.createdAt asc, q.id asc
             """)

@@ -21,7 +21,7 @@ public class OpenApiConfig {
     public OpenAPI openAPI() {
         return new OpenAPI()
                 .info(new Info()
-                        .title("정운영어 API")
+                        .title("푸릇푸릇 API")
                         .version("v0.1")
                         .description("학생 앱 / 관리자 웹 공용 API"))
                 .components(new Components().addSecuritySchemes(BEARER,

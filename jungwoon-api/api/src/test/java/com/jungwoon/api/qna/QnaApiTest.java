@@ -80,6 +80,18 @@ class QnaApiTest extends IntegrationTestSupport {
     }
 
     @Test
+    @DisplayName("cursor 없이 Q&A 첫 목록을 조회할 수 있다")
+    void listFirstPageWithoutCursor() throws Exception {
+        String token = signUp("김혁준");
+        createQuestion(token, true, null);
+
+        mockMvc.perform(get("/api/questions")
+                        .header("Authorization", "Bearer " + token))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.items[0].title").value("문장 구조 질문"));
+    }
+
+    @Test
     @DisplayName("답변 후 학생 수정/삭제는 거부된다")
     void cannotUpdateOrDeleteAfterAnswer() throws Exception {
         String studentToken = signUp("김혁준");
