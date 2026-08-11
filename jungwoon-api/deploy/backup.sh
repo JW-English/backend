@@ -18,16 +18,22 @@ set -a; source .env; set +a
 KEEP_DAYS="${BACKUP_KEEP_DAYS:-30}"
 # 미디어 버킷을 같이 쓰는 경우 프리픽스로 분리한다.
 # 전용 버킷을 만들면 BACKUP_PREFIX 를 비우면 된다
-PREFIX="${BACKUP_PREFIX:-backups}"
+PREFIX="${BACKUP_PREFIX:-}"
+
+# 백업 전용 R2 토큰이 있으면 그걸 쓴다. 없으면 미디어용으로 대체한다.
+# 분리해두면 미디어 토큰이 새어도 백업은 지워지지 않고, 반대도 마찬가지다
+AK="${BACKUP_ACCESS_KEY:-$STORAGE_ACCESS_KEY}"
+SK="${BACKUP_SECRET_KEY:-$STORAGE_SECRET_KEY}"
+EP="${BACKUP_ENDPOINT:-$STORAGE_ENDPOINT}"
 
 # aws cli 를 VM 에 설치하지 않는다. 컨테이너로 그때만 띄운다
 s3() {
     docker run --rm -i \
-        -e AWS_ACCESS_KEY_ID="$STORAGE_ACCESS_KEY" \
-        -e AWS_SECRET_ACCESS_KEY="$STORAGE_SECRET_KEY" \
+        -e AWS_ACCESS_KEY_ID="$AK" \
+        -e AWS_SECRET_ACCESS_KEY="$SK" \
         -e AWS_DEFAULT_REGION="${STORAGE_REGION:-auto}" \
         amazon/aws-cli:latest \
-        --endpoint-url "$STORAGE_ENDPOINT" "$@"
+        --endpoint-url "$EP" "$@"
 }
 
 backup() {
