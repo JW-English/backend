@@ -54,14 +54,22 @@ jobs:
 
       - name: Deploy over SSH
         uses: appleboy/ssh-action@v1
+        env:
+          GHCR_USER: ${{ github.actor }}
+          GHCR_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
           host: ${{ secrets.DEPLOY_HOST }}
           username: ${{ secrets.DEPLOY_USER }}
           key: ${{ secrets.DEPLOY_SSH_KEY }}
           script_stop: true
+          # GHCR 패키지는 기본이 private 이라 VM 이 인증 없이 pull 하면 unauthorized 가 난다.
+          # 이미지를 public 으로 여는 대신 실행마다 발급되는 GITHUB_TOKEN 으로 로그인한다.
+          # 이 토큰은 워크플로가 끝나면 만료되므로 서버에 장기 자격증명이 남지 않는다
+          envs: GHCR_USER,GHCR_TOKEN
           script: |
             set -euo pipefail
-            cd /opt/jungwoon/deploy
+            cd /opt/purutpurut/deploy
+            echo "$GHCR_TOKEN" | docker login ghcr.io -u "$GHCR_USER" --password-stdin
 
             # 실패하면 되돌아갈 태그를 먼저 적어둔다
             PREV=$(grep '^API_TAG=' .env | cut -d= -f2)
