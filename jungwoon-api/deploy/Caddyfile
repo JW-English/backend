@@ -1,0 +1,51 @@
+# Caddy 는 Let's Encrypt 인증서를 알아서 받고 갱신한다.
+# DNS 의 A 레코드가 이 서버를 가리키고 있어야 발급이 된다.
+
+{
+	# 발급 실패 알림을 받을 주소. 없으면 Let's Encrypt 가 만료 경고를 보낼 곳이 없다
+	email {$ACME_EMAIL:admin@purutpurut.com}
+}
+
+api.{$DOMAIN} {
+	reverse_proxy api:8080
+
+	# Spring 의 forward-headers-strategy: framework 가 이 헤더들을 읽어
+	# 쿠키 secure 판정과 리다이렉트 주소를 맞춘다
+	header {
+		Strict-Transport-Security "max-age=31536000; includeSubDomains"
+		X-Content-Type-Options "nosniff"
+		X-Frame-Options "DENY"
+		-Server
+	}
+
+	# 듣기 음원은 R2 presigned URL 로 직접 받으므로 여기를 지나지 않는다.
+	# 그래도 첨부 업로드가 있어 기본 10MB 보다는 올려둔다
+	request_body {
+		max_size 20MB
+	}
+
+	log {
+		output file /data/access-api.log {
+			roll_size 10MB
+			roll_keep 5
+		}
+	}
+}
+
+admin.{$DOMAIN} {
+	reverse_proxy admin:3000
+
+	header {
+		Strict-Transport-Security "max-age=31536000; includeSubDomains"
+		X-Content-Type-Options "nosniff"
+		-Server
+	}
+}
+
+# 약관·개인정보처리방침. 스토어 심사에 URL 을 제출해야 하고
+# 로그인 없이 열려야 한다. admin 이 정적으로 서빙한다
+{$DOMAIN} {
+	redir /terms   /legal/terms   permanent
+	redir /privacy /legal/privacy permanent
+	reverse_proxy admin:3000
+}
