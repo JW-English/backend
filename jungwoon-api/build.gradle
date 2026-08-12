@@ -5,7 +5,7 @@ plugins {
 subprojects {
     apply plugin: 'java-library'
 
-    group = 'com.jungwoon'
+    group = 'com.purut'
     version = '0.0.1-SNAPSHOT'
 
     java {

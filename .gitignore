@@ -26,3 +26,13 @@ __pycache__/
 
 # 운영 시크릿
 jungwoon-api/deploy/.env
+/admin-spec.md
+/admin.md
+/claude.md
+/deployment-plan.md
+/project.md
+/초안.md
+/roadmap-remaining.md
+/mypage-settings-plan.md
+/qna-spec.md
+/listening-qa-improvements.md
