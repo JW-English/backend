@@ -8,7 +8,7 @@
 
 | 디렉터리 | 내용 |
 |---|---|
-| [`jungwoon-api/`](./jungwoon-api) | Spring Boot 4.1 / Java 21 / PostgreSQL 16 / Redis |
+| [`purut-api/`](./purut-api) | Spring Boot 4.1 / Java 21 / PostgreSQL 16 / Redis |
 | `.github/workflows/` | 빌드·테스트 CI |
 
 클라이언트(Expo 앱 + 관리자 웹)는 **별도 저장소**다 — `jungwoon-client`.
@@ -26,7 +26,7 @@ curl localhost:8080/actuator/health     # {"status":"UP"}
 open http://localhost:8080/swagger-ui.html
 ```
 
-자세한 내용(모듈 구조, 스키마 변경 규칙, 테스트)은 [`jungwoon-api/README.md`](./jungwoon-api/README.md).
+자세한 내용(모듈 구조, 스키마 변경 규칙, 테스트)은 [`purut-api/README.md`](./purut-api/README.md).
 
 ## P0 종료 조건 진행 상황
 

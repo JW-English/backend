@@ -4,11 +4,11 @@ on:
   push:
     branches: [main]
     paths:
-      - 'jungwoon-api/**'
+      - 'purut-api/**'
       - '.github/workflows/api-ci.yml'
   pull_request:
     paths:
-      - 'jungwoon-api/**'
+      - 'purut-api/**'
       - '.github/workflows/api-ci.yml'
 
 concurrency:
@@ -17,7 +17,7 @@ concurrency:
 
 defaults:
   run:
-    working-directory: jungwoon-api
+    working-directory: purut-api
 
 jobs:
   build:
@@ -41,7 +41,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: test-report
-          path: jungwoon-api/api/build/reports/tests/test
+          path: purut-api/api/build/reports/tests/test
           retention-days: 7
 
       # OpenAPI 스펙은 클라이언트 타입의 소스다. 계약이 깨지면 여기서 드러난다.
@@ -60,5 +60,5 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: openapi
-          path: jungwoon-api/openapi.json
+          path: purut-api/openapi.json
           retention-days: 14
