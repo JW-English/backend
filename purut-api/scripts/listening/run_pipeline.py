@@ -27,7 +27,7 @@ from dataclasses import dataclass
 from pathlib import Path
 
 HERE = Path(__file__).resolve().parent
-API_ROOT = HERE.parent.parent          # jungwoon-api/
+API_ROOT = HERE.parent.parent          # purut-api/
 WORK_ROOT = HERE / "work"              # 내려받은 원본과 중간 산출물 (gitignore)
 VENV_PYTHON = HERE / ".venv" / "bin" / "python"
 
@@ -71,7 +71,7 @@ class Exam:
 
 
 def load_env() -> dict[str, str]:
-    """jungwoon-api/.env 를 읽는다. 비밀 값은 로그에 남기지 않는다."""
+    """purut-api/.env 를 읽는다. 비밀 값은 로그에 남기지 않는다."""
     env_path = API_ROOT / ".env"
     if not env_path.exists():
         sys.exit(f"{env_path} 가 없습니다. STORAGE_* 값을 채워주세요.")
