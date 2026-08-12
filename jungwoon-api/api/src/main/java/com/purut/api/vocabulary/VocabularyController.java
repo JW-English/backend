@@ -1,0 +1,41 @@
+package com.purut.api.vocabulary;
+
+import com.purut.api.auth.UserPrincipal;
+import com.purut.api.vocabulary.dto.VocabularyDtos.DayDetail;
+import com.purut.api.vocabulary.dto.VocabularyDtos.DayListItem;
+import com.purut.domain.vocabulary.VocabLevel;
+import io.swagger.v3.oas.annotations.Operation;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.web.bind.annotation.RestController;
+
+import java.util.List;
+import java.util.UUID;
+
+@RestController
+@RequestMapping("/api/vocabulary")
+public class VocabularyController {
+
+    private final VocabularyService vocabularyService;
+
+    public VocabularyController(VocabularyService vocabularyService) {
+        this.vocabularyService = vocabularyService;
+    }
+
+    @GetMapping("/days")
+    @Operation(summary = "DAY 목록",
+            description = "level 을 비우면 내 어휘 레벨. 예약일이 지난 DAY 만 보인다")
+    public List<DayListItem> days(@AuthenticationPrincipal UserPrincipal me,
+                                  @RequestParam(required = false) VocabLevel level) {
+        return vocabularyService.listDays(me, level);
+    }
+
+    @GetMapping("/days/{dayId}")
+    @Operation(summary = "단어장", description = "해당 DAY 의 단어 목록. 이어 풀 응시가 있으면 그 id 도 준다")
+    public DayDetail day(@AuthenticationPrincipal UserPrincipal me, @PathVariable UUID dayId) {
+        return vocabularyService.getDay(me, dayId);
+    }
+}

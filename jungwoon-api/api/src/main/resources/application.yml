@@ -1,6 +1,6 @@
 spring:
   application:
-    name: jungwoon-api
+    name: purut-api
   profiles:
     default: local
 
@@ -60,7 +60,7 @@ springdoc:
     tags-sorter: alpha
     operations-sorter: alpha
 
-jungwoon:
+purut:
   version: ${APP_VERSION:dev}
   jwt:
     # 운영에서는 반드시 환경변수로 주입한다. 아래 기본값은 로컬 전용이다.
@@ -88,4 +88,4 @@ jungwoon:
 
 logging:
   level:
-    com.jungwoon: INFO
+    com.purut: INFO
