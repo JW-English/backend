@@ -50,7 +50,7 @@ open http://localhost:8080/swagger-ui.html
 
 - 로컬 기본값은 `application.yml` 에 있다. 아무것도 안 해도 docker compose 의
   Postgres·Redis·MinIO 로 동작한다.
-- 로컬에서 값을 덮어쓰려면 `jungwoon-api/.env` 를 만든다 (`local` 프로파일에서만 읽힌다).
+- 로컬에서 값을 덮어쓰려면 `purut-api/.env` 를 만든다 (`local` 프로파일에서만 읽힌다).
   **필요한 값만 넣는다** — `DB_URL` 처럼 로컬에서 안 쓰는 키를 채워두면
   `application-local.yml` 의 설정(p6spy 경유 등)을 덮어써 서버가 뜨지 않는다.
 - 운영 값은 `.env` 가 아니라 환경변수·시크릿 관리자로 주입한다.

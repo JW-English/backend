@@ -43,7 +43,7 @@ jobs:
       - name: Build & push
         uses: docker/build-push-action@v6
         with:
-          context: jungwoon-api
+          context: purut-api
           push: true
           tags: |
             ${{ env.IMAGE }}:${{ github.sha }}
