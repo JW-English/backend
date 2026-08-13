@@ -29,6 +29,10 @@ dependencies {
     runtimeOnly 'org.postgresql:postgresql'
 
     testImplementation 'org.springframework.security:spring-security-test'
+    // id_token 검증 테스트에서 직접 서명한 JWT 를 만든다. infra 가 implementation 으로
+    // 들고 있어 여기까지 전파되지 않는다. nimbus 를 직접 적으면 BOM 이 버전을
+    // 관리하지 않아 해석에 실패하므로 같은 스타터를 쓴다
+    testImplementation 'org.springframework.security:spring-security-oauth2-jose'
     testImplementation 'org.springframework.boot:spring-boot-testcontainers'
     testImplementation 'org.springframework.boot:spring-boot-webmvc-test'   // Boot 4: MockMvc 자동설정
     testImplementation platform("org.testcontainers:testcontainers-bom:${testcontainersVersion}")

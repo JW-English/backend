@@ -1,7 +1,6 @@
 package com.purut.infra.oauth;
 
 import com.purut.domain.user.Provider;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpHeaders;
 import org.springframework.stereotype.Component;
 import org.springframework.web.client.RestClient;
@@ -19,8 +18,8 @@ public class KakaoUserInfoClient implements OAuth2UserInfoClient {
 
     private final RestClient restClient;
 
-    public KakaoUserInfoClient(@Value("${purut.oauth.kakao.user-info-uri:https://kapi.kakao.com/v2/user/me}") String userInfoUri) {
-        this.restClient = RestClient.builder().baseUrl(userInfoUri).build();
+    public KakaoUserInfoClient(OAuthProviderProperties properties) {
+        this.restClient = RestClient.builder().baseUrl(properties.kakao().userInfoUri()).build();
     }
 
     @Override
@@ -30,9 +29,9 @@ public class KakaoUserInfoClient implements OAuth2UserInfoClient {
 
     @Override
     @SuppressWarnings("unchecked")
-    public OAuth2UserInfo fetch(String accessToken) {
+    public OAuth2UserInfo fetch(String credential) {
         Map<String, Object> body = restClient.get()
-                .header(HttpHeaders.AUTHORIZATION, "Bearer " + accessToken)
+                .header(HttpHeaders.AUTHORIZATION, "Bearer " + credential)
                 .retrieve()
                 .body(Map.class);
 
