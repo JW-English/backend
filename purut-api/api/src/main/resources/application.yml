@@ -82,6 +82,15 @@ purut:
     upload-url-ttl: 10m
     download-url-ttl: 1h
 
+  oauth:
+    # audiences 는 우리 앱의 클라이언트 ID 다. 비어 있으면 해당 제공자 로그인이
+    # 실패한다 — aud 를 못 거르면 다른 앱의 토큰으로도 로그인이 되기 때문에
+    # 조용히 통과시키지 않고 설정 누락을 드러낸다.
+    google:
+      audiences: ${OAUTH_GOOGLE_AUDIENCES:}
+    apple:
+      audiences: ${OAUTH_APPLE_AUDIENCES:}
+
   cors:
     allowed-origins:
       - http://localhost:3000

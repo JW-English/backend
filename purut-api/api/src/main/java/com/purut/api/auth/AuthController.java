@@ -53,10 +53,10 @@ public class AuthController {
     @PostMapping("/oauth/{provider}")
     @SecurityRequirements
     @Operation(summary = "소셜 로그인",
-            description = "클라이언트가 각 사 SDK 로 받은 access_token 을 보내면 서버가 프로필을 직접 조회한다. 첫 로그인이 회원가입이다")
+            description = "클라이언트가 각 사 SDK 로 받은 토큰(카카오는 access_token, 구글·Apple 은 id_token)을 보내면 서버가 직접 검증한다. 첫 로그인이 회원가입이다")
     public TokenResponse oauthLogin(@PathVariable Provider provider,
                                     @Valid @RequestBody OAuthLoginRequest request) {
-        var result = oAuthLoginService.login(provider, request.accessToken());
+        var result = oAuthLoginService.login(provider, request.accessToken(), request.displayName());
         return TokenResponse.of(result.tokens(), result.user());
     }
 
