@@ -38,13 +38,13 @@ public class OAuthLoginService {
     }
 
     @Transactional
-    public AuthService.LoginResult login(Provider provider, String accessToken) {
-        OAuth2UserInfo info = clientRegistry.get(provider).fetch(accessToken);
+    public AuthService.LoginResult login(Provider provider, String credential, String displayName) {
+        OAuth2UserInfo info = clientRegistry.get(provider).fetch(credential);
 
         User user = socialAccountRepository
                 .findByProviderAndProviderId(provider, info.providerId())
                 .map(SocialAccount::getUser)
-                .orElseGet(() -> register(provider, info));
+                .orElseGet(() -> register(provider, info, displayName));
 
         if (!user.isActive()) {
             throw new BusinessException(ErrorCode.WITHDRAWN_USER);
@@ -54,7 +54,7 @@ public class OAuthLoginService {
         return new AuthService.LoginResult(user, refreshTokenService.issue(user));
     }
 
-    private User register(Provider provider, OAuth2UserInfo info) {
+    private User register(Provider provider, OAuth2UserInfo info, String displayName) {
         // 같은 이메일로 다른 제공자에 이미 가입돼 있으면 자동 연동하지 않는다.
         // 이메일 소유권을 검증하지 않은 자동 연동은 계정 탈취 경로가 된다.
         if (info.email() != null && userRepository.existsByEmail(info.email())) {
@@ -64,11 +64,27 @@ public class OAuthLoginService {
 
         User user = userRepository.save(User.builder()
                 .email(info.email())
-                .name(info.nickname() != null ? info.nickname() : "학생")
+                .name(resolveName(info.nickname(), displayName))
                 .role(Role.STUDENT)
                 .build());
 
         socialAccountRepository.save(new SocialAccount(user, provider, info.providerId()));
         return user;
+    }
+    /**
+     * 표시 이름을 정한다.
+     *
+     * 제공자가 준 이름을 우선한다. Apple 은 identity token 에 이름이 없어 앱이 보낸 값을
+     * 쓰는데, 클라이언트가 보낸 값이라 신원 판단에는 쓰지 않는다 — 화면에 뜨는 기본값일 뿐이고
+     * 사용자가 온보딩에서 바꾼다.
+     */
+    private String resolveName(String fromProvider, String fromClient) {
+        if (fromProvider != null && !fromProvider.isBlank()) {
+            return fromProvider;
+        }
+        if (fromClient != null && !fromClient.isBlank()) {
+            return fromClient.strip();
+        }
+        return "학생";
     }
 }

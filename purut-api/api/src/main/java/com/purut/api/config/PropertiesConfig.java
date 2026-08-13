@@ -7,6 +7,7 @@ import org.springframework.context.annotation.Configuration;
 
 @Configuration
 @EnableConfigurationProperties({
+        com.purut.infra.oauth.OAuthProviderProperties.class,
         CorsProperties.class,
         JwtProperties.class,
         RefreshCookies.CookieProperties.class

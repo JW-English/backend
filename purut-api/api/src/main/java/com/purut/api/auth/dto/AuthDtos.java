@@ -33,7 +33,13 @@ public final class AuthDtos {
     }
 
     /** 소셜 로그인: 클라이언트가 각 사 SDK 로 받은 access_token 만 보낸다. */
-    public record OAuthLoginRequest(@NotBlank String accessToken) {
+    /**
+     * @param accessToken 카카오는 access_token, 구글·Apple 은 id_token
+     * @param displayName Apple 최초 로그인에서만 온다. Apple 은 identity token 에 이름을
+     *                    넣지 않고 최초 응답에서 한 번만 주기 때문이다. 클라이언트가 보낸
+     *                    값이라 <b>신원 판단에는 쓰지 않고</b> 가입 시 표시 이름의 기본값으로만 쓴다
+     */
+    public record OAuthLoginRequest(@NotBlank String accessToken, String displayName) {
     }
 
     public record TokenResponse(
