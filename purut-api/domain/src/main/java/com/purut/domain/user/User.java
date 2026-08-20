@@ -55,7 +55,7 @@ public class User extends BaseEntity {
     @Column(name = "grade")
     private Integer grade;
 
-    /** 어휘 레벨. 학교 학년과 별개다 — 고3이 BEGINNER 인 경우가 있다 */
+    /** 어휘 레벨. 이름은 학년을 따르지만 users.grade 와 별개다 — 고3이 고1 단어장을 볼 수 있다 */
     @Enumerated(EnumType.STRING)
     @Column(name = "vocab_level")
     private VocabLevel vocabLevel;
@@ -109,9 +109,9 @@ public class User extends BaseEntity {
         // 이미 지정돼 있으면 건드리지 않는다 — 진급 때 다시 호출해도 유지된다
         if (this.vocabLevel == null && grade != null) {
             this.vocabLevel = switch (grade) {
-                case 1 -> VocabLevel.BEGINNER;
-                case 3 -> VocabLevel.ADVANCED;
-                default -> VocabLevel.INTERMEDIATE;
+                case 1 -> VocabLevel.GRADE_1;
+                case 3 -> VocabLevel.GRADE_3;
+                default -> VocabLevel.GRADE_2;
             };
         }
     }
