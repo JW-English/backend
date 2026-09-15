@@ -113,7 +113,7 @@ class QuizApiTest extends IntegrationTestSupport {
     @DisplayName("출제 응답에는 정답이 들어있지 않다")
     void questionsHideAnswer() throws Exception {
         String token = signUpAndOnboard(2);
-        WordDay day = createDay(VocabLevel.INTERMEDIATE, LocalDate.now().minusDays(1), 10);
+        WordDay day = createDay(VocabLevel.GRADE_2, LocalDate.now().minusDays(1), 10);
 
         JsonNode attempt = startQuiz(token, day.getId(), 5);
 
@@ -131,7 +131,7 @@ class QuizApiTest extends IntegrationTestSupport {
     @DisplayName("서버가 채점한다 — 정답을 모른 채 찍으면 만점이 나오지 않는다")
     void serverGrades() throws Exception {
         String token = signUpAndOnboard(2);
-        WordDay day = createDay(VocabLevel.INTERMEDIATE, LocalDate.now().minusDays(1), 10);
+        WordDay day = createDay(VocabLevel.GRADE_2, LocalDate.now().minusDays(1), 10);
 
         JsonNode attempt = startQuiz(token, day.getId(), 5);
         UUID attemptId = UUID.fromString(attempt.get("attemptId").asText());
@@ -178,7 +178,7 @@ class QuizApiTest extends IntegrationTestSupport {
     @DisplayName("문항 수를 지정하지 않으면 DAY 의 단어가 전부 출제된다")
     void defaultsToWholeDay() throws Exception {
         String token = signUpAndOnboard(2);
-        WordDay day = createDay(VocabLevel.INTERMEDIATE, LocalDate.now().minusDays(1), 37);
+        WordDay day = createDay(VocabLevel.GRADE_2, LocalDate.now().minusDays(1), 37);
 
         String response = mockMvc.perform(post("/api/quiz/attempts")
                         .header("Authorization", "Bearer " + token)
@@ -203,7 +203,7 @@ class QuizApiTest extends IntegrationTestSupport {
     @DisplayName("합격은 정답률 90% 이상이다")
     void passesAtNinetyPercent() throws Exception {
         String token = signUpAndOnboard(2);
-        WordDay day = createDay(VocabLevel.INTERMEDIATE, LocalDate.now().minusDays(1), 10);
+        WordDay day = createDay(VocabLevel.GRADE_2, LocalDate.now().minusDays(1), 10);
 
         // 10문항 중 9개를 맞히면 90% 로 합격, 8개면 80% 로 불합격이어야 한다
         assertThat(passedWith(token, day, 9)).isTrue();
@@ -299,7 +299,7 @@ class QuizApiTest extends IntegrationTestSupport {
     @DisplayName("이미 제출한 시험은 다시 제출할 수 없다")
     void cannotSubmitTwice() throws Exception {
         String token = signUpAndOnboard(2);
-        WordDay day = createDay(VocabLevel.INTERMEDIATE, LocalDate.now().minusDays(1), 10);
+        WordDay day = createDay(VocabLevel.GRADE_2, LocalDate.now().minusDays(1), 10);
         UUID attemptId = UUID.fromString(startQuiz(token, day.getId(), 4).get("attemptId").asText());
 
         mockMvc.perform(post("/api/quiz/attempts/%s/submit".formatted(attemptId))
@@ -316,7 +316,7 @@ class QuizApiTest extends IntegrationTestSupport {
     @DisplayName("아직 열리지 않은 DAY 는 조회도 응시도 막힌다")
     void unopenedDayIsBlocked() throws Exception {
         String token = signUpAndOnboard(2);
-        WordDay future = createDay(VocabLevel.INTERMEDIATE, LocalDate.now().plusDays(7), 10);
+        WordDay future = createDay(VocabLevel.GRADE_2, LocalDate.now().plusDays(7), 10);
 
         mockMvc.perform(get("/api/vocabulary/days/" + future.getId())
                         .header("Authorization", "Bearer " + token))
@@ -336,7 +336,7 @@ class QuizApiTest extends IntegrationTestSupport {
     @DisplayName("남의 응시 기록은 조회도 제출도 할 수 없다 (IDOR)")
     void cannotTouchOthersAttempt() throws Exception {
         String victim = signUpAndOnboard(2);
-        WordDay day = createDay(VocabLevel.INTERMEDIATE, LocalDate.now().minusDays(1), 10);
+        WordDay day = createDay(VocabLevel.GRADE_2, LocalDate.now().minusDays(1), 10);
         UUID attemptId = UUID.fromString(startQuiz(victim, day.getId(), 4).get("attemptId").asText());
 
         String attacker = signUpAndOnboard(2);
@@ -354,7 +354,7 @@ class QuizApiTest extends IntegrationTestSupport {
     @DisplayName("틀린 단어는 오답노트에 쌓이고, 맞힌 단어는 들어가지 않는다")
     void wrongNotesAccumulate() throws Exception {
         String token = signUpAndOnboard(2);
-        WordDay day = createDay(VocabLevel.INTERMEDIATE, LocalDate.now().minusDays(1), 10);
+        WordDay day = createDay(VocabLevel.GRADE_2, LocalDate.now().minusDays(1), 10);
 
         JsonNode attempt = startQuiz(token, day.getId(), 5);
         UUID attemptId = UUID.fromString(attempt.get("attemptId").asText());

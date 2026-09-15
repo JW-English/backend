@@ -1,15 +1,16 @@
 package com.purut.domain.vocabulary;
 
 /**
- * 어휘 레벨. 학교 학년과 별개다.
+ * 어휘 레벨.
  *
- * 1:1 과외에서는 고3이 BEGINNER 를 봐야 하는 경우가 흔해, 학년으로 난이도를
- * 대신하면 학생이 자기 레벨을 기본 화면에서 볼 수 없다.
+ * 이름은 학년을 따르지만 {@code users.grade}(학교 학년)와는 별개다. 1:1 과외에서는
+ * 고3 학생에게 고1 단어장을 지정해야 하는 경우가 흔해, 학생마다
+ * {@code users.vocab_level} 을 따로 둔다.
  */
 public enum VocabLevel {
-    BEGINNER("Beginner"),
-    INTERMEDIATE("Intermediate"),
-    ADVANCED("Advanced");
+    GRADE_1("고1"),
+    GRADE_2("고2"),
+    GRADE_3("고3");
 
     private final String label;
 

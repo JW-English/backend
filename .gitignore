@@ -20,8 +20,8 @@ build/
 # 단어 원본·생성 데이터. 레포가 public 이라 올리지 않는다.
 # intermediate.csv 는 교재 뜻이 원문 그대로 들어 있고,
 # generated.jsonl 은 우리가 만든 단어장 콘텐츠다.
-jungwoon-api/scripts/vocabulary/data/
-jungwoon-api/scripts/vocabulary/out/
+purut-api/scripts/vocabulary/data/
+purut-api/scripts/vocabulary/out/
 __pycache__/
 
 # 운영 시크릿
@@ -36,3 +36,8 @@ jungwoon-api/deploy/.env
 /mypage-settings-plan.md
 /qna-spec.md
 /listening-qa-improvements.md
+
+# 교재 원본·생성 데이터. 레포가 public 이라 올리지 않는다.
+# 위키 253용어와 단어 6000배치는 우리가 만든 콘텐츠다.
+purut-api/scripts/wiki/data/
+purut-api/scripts/wiki/out/

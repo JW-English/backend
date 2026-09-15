@@ -125,9 +125,9 @@ public class VocabularyService {
                     "학년 정보가 없습니다. 프로필에서 학년을 먼저 설정해 주세요.");
         }
         return switch (grade) {
-            case 1 -> VocabLevel.BEGINNER;
-            case 3 -> VocabLevel.ADVANCED;
-            default -> VocabLevel.INTERMEDIATE;
+            case 1 -> VocabLevel.GRADE_1;
+            case 3 -> VocabLevel.GRADE_3;
+            default -> VocabLevel.GRADE_2;
         };
     }
 }
